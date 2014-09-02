@@ -18,6 +18,12 @@ package com.google.cloud.genomics.gatk.common;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * Creates GenomicsApiDataSource objects, one per each root url
+ * (e.g. https://www.googleapis.com/genomics/v1beta).
+ * Allows configuring settings such as client secrets file on a per 
+ * root url basis.
+ */
 public class GenomicsApiDataSourceFactory {
   /**
    * Settings required for initializing GenomicsApiDataSource

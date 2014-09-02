@@ -23,6 +23,12 @@ import htsjdk.samtools.SAMRecord;
 import java.io.IOException;
 import java.io.OutputStream;
 
+/**
+ * Reads SAM data using SamReader and pumps it into and OutputStream as a 
+ * SAM File.
+ * This class is useful to test the piping of SAM data to Picard tools 
+ * without involving actual reading of data through Genomics APIs.
+ */
 public class SamReaderToSAMFilePump implements SAMFilePump {
   private SamReader reader;
   

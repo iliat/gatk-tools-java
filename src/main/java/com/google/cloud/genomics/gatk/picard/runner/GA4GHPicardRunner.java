@@ -36,6 +36,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
 
+/**
+ * Main class for running Picard tools with INPUTS using ga4gh:// urls.
+ */
 @Parameters(separators = "=")
 public class GA4GHPicardRunner {
   private static final Logger LOG = Logger.getLogger(GA4GHPicardRunner.class.getName());
