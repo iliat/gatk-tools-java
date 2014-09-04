@@ -17,7 +17,6 @@ package com.google.cloud.genomics.gatk.common;
 
 import com.google.api.services.genomics.model.HeaderSection;
 import com.google.api.services.genomics.model.Read;
-import com.google.cloud.genomics.pipelines.utils.GenomicsConverter;
 
 import htsjdk.samtools.SAMFileHeader;
 import htsjdk.samtools.SAMRecord;

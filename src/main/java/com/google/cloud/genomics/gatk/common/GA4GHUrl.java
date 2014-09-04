@@ -23,21 +23,6 @@ import java.net.URISyntaxException;
  * e.g. ga4gh://www.googleapis.com/genomics/v1beta/reads/16801540936334623823/CLqN8Z3sDRDQldHJ_rTS9VE/1/
  */
 public class GA4GHUrl {
-  public GA4GHUrl(String rootUrl,
-      String dataset,
-      String readset,
-      String sequence,
-      int rangeStart,
-      int rangeEnd) {
-    super();
-    this.rootUrl = rootUrl;
-    this.dataset = dataset;
-    this.readset = readset;
-    this.sequence = sequence;
-    this.rangeStart = rangeStart;
-    this.rangeEnd = rangeEnd;
-  }
-
   int rangeStart = 0;
   int rangeEnd = 0;
   String rootUrl = "";
@@ -54,6 +39,21 @@ public class GA4GHUrl {
   
   public GA4GHUrl() {
     
+  }
+  
+  public GA4GHUrl(String rootUrl,
+      String dataset,
+      String readset,
+      String sequence,
+      int rangeStart,
+      int rangeEnd) {
+    super();
+    this.rootUrl = rootUrl;
+    this.dataset = dataset;
+    this.readset = readset;
+    this.sequence = sequence;
+    this.rangeStart = rangeStart;
+    this.rangeEnd = rangeEnd;
   }
   
   public GA4GHUrl(String input) throws URISyntaxException {
