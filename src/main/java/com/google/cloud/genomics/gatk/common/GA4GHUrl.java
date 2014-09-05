@@ -19,18 +19,17 @@ import java.net.URISyntaxException;
 
 /**
  * Represents a GA4GH reads resource as a URL in the form of
- * ga4gh://<base api path>/reads/<dataset>/<readset>/<sequence>/[start-end],
- * e.g. ga4gh://www.googleapis.com/genomics/v1beta/reads/16801540936334623823/CLqN8Z3sDRDQldHJ_rTS9VE/1/
+ * ga4gh://<base api path>/readsets/<readset>/<sequence>/[start-end],
+ * e.g. ga4gh://www.googleapis.com/genomics/v1beta/reads/CLqN8Z3sDRDQldHJ_rTS9VE/1/
  */
 public class GA4GHUrl {
   int rangeStart = 0;
   int rangeEnd = 0;
   String rootUrl = "";
-  String dataset = "";
   String readset = "";
   String sequence = "";
   
-  private static String READS_PATH_COMPONENT = "/reads/";
+  private static String READS_PATH_COMPONENT = "/readsets/";
   private static String GA4GH_SCHEMA_PREFIX = "ga4gh://";
   
   public static boolean isGA4GHUrl(String url) {
@@ -42,14 +41,12 @@ public class GA4GHUrl {
   }
   
   public GA4GHUrl(String rootUrl,
-      String dataset,
       String readset,
       String sequence,
       int rangeStart,
       int rangeEnd) {
     super();
     this.rootUrl = rootUrl;
-    this.dataset = dataset;
     this.readset = readset;
     this.sequence = sequence;
     this.rangeStart = rangeStart;
@@ -62,22 +59,23 @@ public class GA4GHUrl {
     }
     int pos = input.indexOf(READS_PATH_COMPONENT);
     if (pos < 0) {
-      throw new URISyntaxException(input, "Can not find /reads/ path componentt");
+      throw new URISyntaxException(input, "Can not find " + READS_PATH_COMPONENT
+          + " path component");
     }
     rootUrl = input.substring(0, pos).replace(GA4GH_SCHEMA_PREFIX, "https://");
     String readsPath = input.substring(pos);
     String[] pathComponents = readsPath.split("/");
-    if (pathComponents.length < 5) {
+    if (pathComponents.length < 4) {
       throw new URISyntaxException(input,
-          "Expecting /reads/dataset/readset/sequence/[range], got " + 
-          readsPath);
+          "Expecting " + READS_PATH_COMPONENT +"readset/sequence/[range], got "
+              + readsPath);
     }
-    dataset = pathComponents[2];
-    readset = pathComponents[3];
-    sequence = pathComponents[4];
+  
+    readset = pathComponents[2];
+    sequence = pathComponents[3];
     
-    if (pathComponents.length > 5) {
-      String [] range = pathComponents[5].split("-");
+    if (pathComponents.length > 4) {
+      String [] range = pathComponents[4].split("-");
       if (range.length == 2) {
         rangeStart = Integer.parseInt(range[0]);
         rangeEnd = Integer.parseInt(range[1]);
@@ -129,20 +127,6 @@ public class GA4GHUrl {
    */
   public void setRootUrl(String rootUrl) {
     this.rootUrl = rootUrl;
-  }
-
-  /**
-   * @return the dataset
-   */
-  public String getDataset() {
-    return dataset;
-  }
-
-  /**
-   * @param dataset the dataset to set
-   */
-  public void setDataset(String dataset) {
-    this.dataset = dataset;
   }
 
   /**

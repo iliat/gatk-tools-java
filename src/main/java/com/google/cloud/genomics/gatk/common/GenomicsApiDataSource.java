@@ -96,22 +96,20 @@ public class GenomicsApiDataSource {
   
   public ReadIteratorResource getReadsFromGenomicsApi(GA4GHUrl url) 
        throws IOException, GeneralSecurityException {
-    return getReadsFromGenomicsApi(url.getDataset(), url.getReadset(), 
+    return getReadsFromGenomicsApi(url.getReadset(), 
         url.getSequence(), url.getRangeStart(), url.getRangeEnd());
   }
   
-  public ReadIteratorResource getReadsFromGenomicsApi(String datasetId, 
-      String readsetId, String sequenceName, 
-      int sequenceStart, int sequenceEnd) throws IOException, GeneralSecurityException {
+  public ReadIteratorResource getReadsFromGenomicsApi(String readsetId, 
+      String sequenceName, int sequenceStart, int sequenceEnd) 
+          throws IOException, GeneralSecurityException {
     final Genomics stub = getApi();
     // TODO(iliat): implement API retries and using access key for public
     // datasets
     try {
-      Dataset dataset = stub.datasets().get(datasetId).execute();
-      LOG.info("Found dataset " + datasetId);
-      
       Readset readset = stub.readsets().get(readsetId).execute();
-      LOG.info("Found readset " + readsetId);
+      String datasetId = readset.getDatasetId();
+      LOG.info("Found readset " + readsetId + ", dataset " + datasetId);
       
       List<HeaderSection> headers = readset.getFileData();
       if (headers == null || headers.size() == 0) {
