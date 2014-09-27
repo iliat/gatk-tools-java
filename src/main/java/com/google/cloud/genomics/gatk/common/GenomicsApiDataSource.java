@@ -15,10 +15,15 @@ limitations under the License.
 */
 package com.google.cloud.genomics.gatk.common;
 
+import com.google.api.client.auth.oauth2.Credential;
 import com.google.api.client.extensions.java6.auth.oauth2.VerificationCodeReceiver;
 import com.google.api.client.extensions.jetty.auth.oauth2.LocalServerReceiver;
 import com.google.api.client.googleapis.extensions.java6.auth.oauth2.GooglePromptReceiver;
+import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
 import com.google.api.client.googleapis.json.GoogleJsonResponseException;
+import com.google.api.client.http.HttpRequest;
+import com.google.api.client.http.HttpRequestInitializer;
+import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.api.services.genomics.Genomics;
 import com.google.api.services.genomics.GenomicsScopes;
 import com.google.api.services.genomics.model.Dataset;
@@ -70,32 +75,49 @@ public class GenomicsApiDataSource {
   }
   
   private Genomics initGenomicsApi() throws GeneralSecurityException, IOException {
-    File clientSecrets = new File(clientSecretsFilename);
-    if (!clientSecrets.exists()) {
-      throw new IOException(
-          "Client secrets file " + clientSecretsFilename + " does not exist."
-          + " Visit https://developers.google.com/genomics to learn how"
-          + " to install a client_secrets.json file.  If you have installed a client_secrets.json"
-          + " in a specific location, use --client_secrets_filename <path>/client_secrets.json.");
+    LOG.info("Initializing Genomics API for " + rootUrl);
+    if (!clientSecretsFilename.isEmpty()) {
+      File clientSecrets = new File(clientSecretsFilename);
+      if (!clientSecrets.exists()) {
+        throw new IOException(
+            "Client secrets file " + clientSecretsFilename + " does not exist."
+            + " Visit https://developers.google.com/genomics to learn how"
+            + " to install a client_secrets.json file.  If you have installed a client_secrets.json"
+            + " in a specific location, use --client_secrets_filename <path>/client_secrets.json.");
+      }
+      LOG.info("Using client secrets file " + clientSecretsFilename);
+      
+      VerificationCodeReceiver receiver = noLocalServer ? 
+          new GooglePromptReceiver() : new LocalServerReceiver();
+      GenomicsFactory genomicsFactory = GenomicsFactory
+              .builder("genomics_java_client")
+              .setScopes(SCOPES)
+              .setRootUrl(rootUrl)
+              .setServicePath("/")
+              .setVerificationCodeReceiver(Suppliers.ofInstance(receiver))
+              .build();
+      return genomicsFactory.fromClientSecretsFile(clientSecrets);
+    } else {
+      final Genomics.Builder builder = new Genomics
+          .Builder(
+              GoogleNetHttpTransport.newTrustedTransport(),
+              JacksonFactory.getDefaultInstance(),
+              new HttpRequestInitializer() {
+                @Override public void initialize(HttpRequest httpRequest) throws IOException {
+                  httpRequest.setReadTimeout(20000);
+                  httpRequest.setConnectTimeout(20000);
+                }
+              })
+          .setApplicationName("genomics_java_client")
+          .setRootUrl(rootUrl)
+          .setServicePath("/");
+        return builder.build();
     }
-    
-    VerificationCodeReceiver receiver = noLocalServer ? 
-        new GooglePromptReceiver() : new LocalServerReceiver();
-
-    GenomicsFactory genomicsFactory = GenomicsFactory
-        .builder("genomics_java_client")
-        .setScopes(SCOPES)
-        .setUserName("user" + SCOPES.size())
-        .setVerificationCodeReceiver(Suppliers.ofInstance(receiver))
-        .setRootUrl(rootUrl)
-        .setServicePath("/")
-        .build();
-
-    return genomicsFactory.fromClientSecretsFile(clientSecrets);
   }
   
   public ReadIteratorResource getReadsFromGenomicsApi(GA4GHUrl url) 
        throws IOException, GeneralSecurityException {
+    LOG.info("Getting reads from " + url);
     return getReadsFromGenomicsApi(url.getReadset(), 
         url.getSequence(), url.getRangeStart(), url.getRangeEnd());
   }
@@ -103,6 +125,8 @@ public class GenomicsApiDataSource {
   public ReadIteratorResource getReadsFromGenomicsApi(String readsetId, 
       String sequenceName, int sequenceStart, int sequenceEnd) 
           throws IOException, GeneralSecurityException {
+    LOG.info("Getting readset " + readsetId + ", sequence " + sequenceName + 
+        ", start=" + sequenceStart + ", end=" + sequenceEnd);
     final Genomics stub = getApi();
     // TODO(iliat): implement API retries and using access key for public
     // datasets
