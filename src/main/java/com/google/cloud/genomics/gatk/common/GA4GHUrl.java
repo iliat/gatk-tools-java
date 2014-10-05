@@ -21,7 +21,7 @@ import java.net.URL;
 /**
  * Represents a GA4GH reads resource as a URL in the form of
  * ga4gh://<base api path>/readsets/<readset>/<sequence>/[start-end],
- * e.g. ga4gh://www.googleapis.com/genomics/v1beta/readsets/CLqN8Z3sDRDQldHJ_rTS9VE/1/
+ * e.g. ga4gh://www.googleapis.com/genomics/v1beta/readsets/CMvnhpKTFhCbiObuzvm7nOoB/*/
  */
 public class GA4GHUrl {
   int rangeStart = 0;
