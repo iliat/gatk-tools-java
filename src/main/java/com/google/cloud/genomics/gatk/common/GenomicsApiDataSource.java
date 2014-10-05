@@ -15,7 +15,6 @@ limitations under the License.
 */
 package com.google.cloud.genomics.gatk.common;
 
-import com.google.api.client.auth.oauth2.Credential;
 import com.google.api.client.extensions.java6.auth.oauth2.VerificationCodeReceiver;
 import com.google.api.client.extensions.jetty.auth.oauth2.LocalServerReceiver;
 import com.google.api.client.googleapis.extensions.java6.auth.oauth2.GooglePromptReceiver;
@@ -25,8 +24,6 @@ import com.google.api.client.http.HttpRequest;
 import com.google.api.client.http.HttpRequestInitializer;
 import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.api.services.genomics.Genomics;
-import com.google.api.services.genomics.GenomicsScopes;
-import com.google.api.services.genomics.model.Dataset;
 import com.google.api.services.genomics.model.HeaderSection;
 import com.google.api.services.genomics.model.Read;
 import com.google.api.services.genomics.model.Readset;
@@ -49,7 +46,6 @@ import java.util.logging.Logger;
  */
 public class GenomicsApiDataSource {
   private static final Logger LOG = Logger.getLogger(GenomicsApiDataSource.class.getName());
-  private static List<String> SCOPES = Arrays.asList(GenomicsScopes.GENOMICS);
   
   private String clientSecretsFilename;
   private boolean noLocalServer;
@@ -91,7 +87,6 @@ public class GenomicsApiDataSource {
           new GooglePromptReceiver() : new LocalServerReceiver();
       GenomicsFactory genomicsFactory = GenomicsFactory
               .builder("genomics_java_client")
-              .setScopes(SCOPES)
               .setRootUrl(rootUrl)
               .setServicePath("/")
               .setVerificationCodeReceiver(Suppliers.ofInstance(receiver))

@@ -1,3 +1,18 @@
+/*
+Copyright 2014 Google Inc. All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
 package com.google.cloud.genomics.gatk.htsjdk;
 
 import com.google.cloud.genomics.gatk.common.GA4GHUrl;
@@ -131,7 +146,8 @@ public class GA4GHSamReader implements SamReader {
       throw new IllegalArgumentException("queryMate called for unpaired read.");
     }
     if (rec.getFirstOfPairFlag() == rec.getSecondOfPairFlag()) {
-        throw new IllegalArgumentException("SAMRecord must be either first and second of pair, but not both.");
+        throw new IllegalArgumentException(
+            "SAMRecord must be either first and second of pair, but not both.");
     }
     final boolean firstOfPair = rec.getFirstOfPairFlag();
     final CloseableIterator<SAMRecord> it;
@@ -146,18 +162,24 @@ public class GA4GHSamReader implements SamReader {
             final SAMRecord next = it.next();
             if (!next.getReadPairedFlag()) {
                 if (rec.getReadName().equals(next.getReadName())) {
-                    throw new SAMFormatException("Paired and unpaired reads with same name: " + rec.getReadName());
+                    throw new SAMFormatException(
+                        "Paired and unpaired reads with same name: " + rec.getReadName());
                 }
                 continue;
             }
             if (firstOfPair) {
-                if (next.getFirstOfPairFlag()) continue;
+                if (next.getFirstOfPairFlag()) {
+                  continue;
+                }
             } else {
-                if (next.getSecondOfPairFlag()) continue;
+                if (next.getSecondOfPairFlag()) {
+                  continue;
+                }
             }
             if (rec.getReadName().equals(next.getReadName())) {
                 if (mateRec != null) {
-                    throw new SAMFormatException("Multiple SAMRecord with read name " + rec.getReadName() +
+                    throw new SAMFormatException(
+                        "Multiple SAMRecord with read name " + rec.getReadName() +
                             " for " + (firstOfPair ? "second" : "first") + " end.");
                 }
                 mateRec = next;
