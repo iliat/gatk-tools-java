@@ -147,8 +147,10 @@ public class GenomicsApiDataSource {
           String.valueOf(sequenceStart) + "-" + String.valueOf(sequenceEnd));
       Paginator.Reads searchReads = Paginator.Reads.create(stub);
       SearchReadsRequest readRequest = new SearchReadsRequest()
-        .setReadsetIds(Arrays.asList(readsetId))
-        .setSequenceName(sequenceName);
+        .setReadsetIds(Arrays.asList(readsetId));
+      if (!sequenceName.isEmpty()) {
+        readRequest.setSequenceName(sequenceName);
+      }
       if (sequenceStart != 0) {
         readRequest.setSequenceStart(BigInteger.valueOf(sequenceStart));
       }
