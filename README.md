@@ -17,8 +17,8 @@ Arguments for running:
 --client_secrets_filename=<path to client_secrets.json> 
 -path=<path to Picard tool jars>
 -tool=ValidateSamFile.jar 
-INPUT=ga4gh://www.googleapis.com/genomics/v1beta/readsets/<readset>/<sequence>/
-E.g. ga4gh://www.googleapis.com/genomics/v1beta/readsets/CLqN8Z3sDRCwgrmdkOXjn_sB/*/
+INPUT=`ga4gh://www.googleapis.com/genomics/v1beta/readsets/<readset>/<sequence>/`
+E.g. `ga4gh://www.googleapis.com/genomics/v1beta/readsets/CLqN8Z3sDRCwgrmdkOXjn_sB/*/`
 
 Current limitations:
 (These will be removed in subsequent versions)
