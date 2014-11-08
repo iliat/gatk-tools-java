@@ -20,8 +20,8 @@ import java.net.URL;
 
 /**
  * Represents a GA4GH reads resource as a URL in the form of
- * ga4gh://<base api path>/readsets/<readset>/[<sequence>]/[start-end],
- * e.g. ga4gh://www.googleapis.com/genomics/v1beta/readsets/CMvnhpKTFhCbiObuzvm7nOoB/
+ * ga4gh://<base api path>/readsets/<readgroupset>/<sequence>/[start-end],
+ * e.g. ga4gh://www.googleapis.com/genomics/v1beta2/readgroupsets/CMvnhpKTFhD04eLE-q2yxnU/1/
  */
 public class GA4GHUrl {
   int rangeStart = 0;
@@ -30,7 +30,7 @@ public class GA4GHUrl {
   String readset = "";
   String sequence = "";
   
-  private static String READS_PATH_COMPONENT = "/readsets/";
+  private static String READS_PATH_COMPONENT = "/readgroupsets/";
   private static String GA4GH_SCHEMA_PREFIX = "ga4gh://";
   
   public static boolean isGA4GHUrl(String url) {
@@ -72,7 +72,7 @@ public class GA4GHUrl {
     String[] pathComponents = readsPath.split("/");
     if (pathComponents.length < 3) {
       throw new URISyntaxException(input,
-          "Expecting " + READS_PATH_COMPONENT + "readset/[sequence]/[range], got "
+          "Expecting " + READS_PATH_COMPONENT + "readgroupset/sequence/[range], got "
               + readsPath);
     }
   

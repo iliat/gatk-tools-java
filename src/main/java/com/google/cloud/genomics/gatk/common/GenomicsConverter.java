@@ -21,33 +21,28 @@
 // Once this completes and utils-java is updated this file can be removed. 
 package com.google.cloud.genomics.gatk.common;
 
-import com.google.api.services.genomics.model.Header;
-import com.google.api.services.genomics.model.HeaderSection;
-import com.google.api.services.genomics.model.Program;
+import com.google.api.services.genomics.model.CigarUnit;
 import com.google.api.services.genomics.model.Read;
 import com.google.api.services.genomics.model.ReadGroup;
-import com.google.api.services.genomics.model.ReferenceSequence;
-import com.google.cloud.genomics.utils.GenomicsUtils;
+import com.google.api.services.genomics.model.ReadGroupProgram;
+import com.google.api.services.genomics.model.ReadGroupSet;
+import com.google.api.services.genomics.model.Reference;
 import com.google.common.collect.Lists;
 
-import htsjdk.samtools.TagValueAndUnsignedArrayFlag;
-import htsjdk.samtools.TextTagCodec;
-import htsjdk.samtools.SAMSequenceDictionary;
+import htsjdk.samtools.SAMTagUtil;
+
+import htsjdk.samtools.SAMFileHeader;
 import htsjdk.samtools.SAMProgramRecord;
 import htsjdk.samtools.SAMReadGroupRecord;
-import htsjdk.samtools.SAMSequenceRecord;
-import htsjdk.samtools.SAMRecord.SAMTagAndValue;
-import htsjdk.samtools.SAMFileHeader;
 import htsjdk.samtools.SAMRecord;
+import htsjdk.samtools.SAMSequenceDictionary;
+import htsjdk.samtools.SAMSequenceRecord;
+import htsjdk.samtools.TagValueAndUnsignedArrayFlag;
+import htsjdk.samtools.TextTagCodec;
 
-import java.util.Calendar;
-import java.util.GregorianCalendar;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.TimeZone;
-
-import javax.xml.bind.DatatypeConverter;
 
 /**
  * A utility class for converting between genomics data representations by the Cloud Genomics API
@@ -62,13 +57,17 @@ import javax.xml.bind.DatatypeConverter;
  *      HeaderSection <-> SAMFileHeader
  */
 public abstract class GenomicsConverter {
-  private static final Calendar GMT_CALENDAR = new GregorianCalendar(TimeZone.getTimeZone("GMT"));
   
   /** 
    * Standard tags defined in SAM spec. and their types.
    * See http://samtools.github.io/hts-specs/SAMv1.pdf, section 1.5.
    */
   private static Map<String, String> SAM_TAGS;
+  
+  /**
+   * Map form CIGAR operations as represented in the API to standard SAM ones.
+   */
+  private static Map<String, String> CIGAR_OPERATIONS;
   
   static {
     SAM_TAGS = new HashMap<String,String>();
@@ -115,6 +114,17 @@ public abstract class GenomicsConverter {
     SAM_TAGS.put("TC", "i");
     SAM_TAGS.put("U2", "Z");
     SAM_TAGS.put("UQ", "i");
+    
+    CIGAR_OPERATIONS = new HashMap<String, String>();
+    CIGAR_OPERATIONS.put("ALIGNMENT_MATCH","M");
+    CIGAR_OPERATIONS.put("CLIP_HARD", "H");
+    CIGAR_OPERATIONS.put("CLIP_SOFT","S");
+    CIGAR_OPERATIONS.put("DELETE", "D");
+    CIGAR_OPERATIONS.put("INSERT", "I");
+    CIGAR_OPERATIONS.put("PAD", "P");
+    CIGAR_OPERATIONS.put("SEQUENCE_MATCH", "=");
+    CIGAR_OPERATIONS.put("SEQUENCE_MISMATCH", "X");
+    CIGAR_OPERATIONS.put("SKIP", "N");
   }
   
   /** Returns SAM Tag type. If not a known tag - defaults to "Z". */
@@ -126,75 +136,101 @@ public abstract class GenomicsConverter {
   /** Codec used for converting know SAM tags and their values, from strings to Objects */
   private static TextTagCodec textTagCodec = new TextTagCodec();
   
-  /**
-   *  Generates a Read from a SAMRecord. Id, ReadsetId, and AlignedBases fields are lost.
-   */
-  public static final Read makeRead(SAMRecord record) {
-    Read read = new Read();
-    read.setName(record.getReadName());
-    read.setFlags(record.getFlags());
-    read.setReferenceSequenceName(record.getReferenceName());
-    read.setPosition(record.getAlignmentStart());
-    read.setMappingQuality(record.getMappingQuality());
-    read.setCigar(record.getCigarString());
-    read.setMateReferenceSequenceName(record.getMateReferenceName());
-    read.setMatePosition(record.getMateAlignmentStart());
-    read.setTemplateLength(record.getInferredInsertSize());
-    read.setOriginalBases(record.getReadString());
-    read.setBaseQuality(record.getBaseQualityString());
-
-    if (record.getAttributes() != null) {
-      HashMap<String, List<String>> tags = new HashMap<String, List<String>>();
-      for(SAMTagAndValue tagPair : record.getAttributes()) {
-        if (tags.containsKey(tagPair.tag)) {
-          tags.get(tagPair.tag).add(tagPair.value.toString());
-        } else {
-          tags.put(tagPair.tag, Lists.newArrayList((tagPair.value.toString())));
-        }
-      }
-      read.setTags(tags);
-    }
-
-    return read;
-  }
-
   public static final SAMRecord makeSAMRecord(Read read, SAMFileHeader header) {
     SAMRecord record = new SAMRecord(header);
-    if (read.getName() != null) {
-      record.setReadName(read.getName());
+    if (read.getFragmentName() != null) {
+      record.setReadName(read.getFragmentName());
     }
-    if (read.getFlags() != null) {
-      record.setFlags(read.getFlags());
+    if (read.getReadGroupId() != null) {
+      record.setAttribute("RG" ,read.getReadGroupId());
     }
-    if (read.getReferenceSequenceName() != null) {
-      record.setReferenceName(read.getReferenceSequenceName());
+    { // Set flags, as advised in http://google-genomics.readthedocs.org/en/latest/migrating_tips.html
+      int flags = 0;
+
+      flags += (read.getNumberReads() != null && 
+          read.getNumberReads() == 2) ? 1 : 0 ;// read_paired
+      flags += (read.getProperPlacement() != null &&
+          read.getProperPlacement()) ? 2 : 0; // read_proper_pair
+      final boolean unmapped = (read.getAlignment() == null || 
+          read.getAlignment().getPosition() == null || 
+          read.getAlignment().getPosition().getPosition() == null);
+      flags += unmapped ? 4 : 0;  // read_unmapped
+      flags += (read.getNextMatePosition() == null || 
+          read.getNextMatePosition().getPosition() == null) ? 8 : 0; // mate_unmapped
+      flags += (read.getAlignment() != null && 
+          read.getAlignment().getPosition() != null && 
+          read.getAlignment().getPosition().getReverseStrand()) ? 16 : 0 ; // read_reverse_strand
+      flags += (read.getNextMatePosition() != null &&
+          read.getNextMatePosition().getReverseStrand()) ? 32 : 0;  // mate_reverse_strand
+      flags += (read.getReadNumber() != null && 
+          read.getReadNumber() == 0) ? 64 : 0; // first_in_pair
+      flags += (read.getReadNumber() != null && 
+          read.getReadNumber() == 1) ? 128 : 0;  // second_in_pair
+      flags += (read.getSecondaryAlignment() != null 
+          && read.getSecondaryAlignment()) ? 256 : 0; // secondary_alignment
+      flags += (read.getFailedVendorQualityChecks() != null &&
+          read.getFailedVendorQualityChecks()) ? 512 : 0;// failed_quality_check
+      flags += (read.getDuplicateFragment() != null && 
+          read.getDuplicateFragment()) ? 1024 : 0; // duplicate_read
+      flags += (read.getSupplementaryAlignment() != null &&
+          read.getSupplementaryAlignment()) ? 2048 : 0; //supplementary_alignment
+      record.setFlags(flags);
     }
-    if (read.getPosition() != null) {
-      record.setAlignmentStart(read.getPosition());
+    if (read.getAlignment() != null) {
+      if (read.getAlignment().getPosition() !=null ) {
+        String referenceName = read.getAlignment().getPosition().getReferenceName();
+        if (referenceName != null) {
+          record.setReferenceName(referenceName);
+        }
+        Long position = read.getAlignment().getPosition().getPosition();
+        if (position != null) {
+          record.setAlignmentStart(position.intValue());
+        }
+      }
+      Integer mappingQuality = read.getAlignment().getMappingQuality();
+      if (mappingQuality != null) {
+        record.setMappingQuality(mappingQuality);
+      }
+      
+      List<CigarUnit> cigar = read.getAlignment().getCigar();
+      if (cigar != null && cigar.size() > 0) {
+        StringBuffer cigarString = new StringBuffer(cigar.size());
+
+        for (CigarUnit unit : cigar) {
+          cigarString.append(String.valueOf(unit.getOperationLength()));
+          cigarString.append(CIGAR_OPERATIONS.get(unit.getOperation()));
+        }
+        record.setCigarString(cigarString.toString());
+      }
     }
-    if (read.getMappingQuality() != null) {
-      record.setMappingQuality(read.getMappingQuality());
+    if (read.getNextMatePosition() != null) {
+      String mateReferenceName = read.getNextMatePosition().getReferenceName();
+      if (mateReferenceName != null) {
+        record.setMateReferenceName(mateReferenceName);
+      }
+      Long matePosition = read.getNextMatePosition().getPosition();
+      if (matePosition != null) {
+        record.setMateAlignmentStart(matePosition.intValue());
+      }
     }
-    if (read.getCigar() != null) {
-      record.setCigarString(read.getCigar());
+    if (read.getFragmentLength() != null) {
+      record.setInferredInsertSize(read.getFragmentLength());
     }
-    if (read.getMateReferenceSequenceName() != null) {
-      record.setMateReferenceName(read.getMateReferenceSequenceName());
+    if (read.getAlignedSequence() != null) {
+      record.setReadString(read.getAlignedSequence());
     }
-    if (read.getMatePosition() != null) {
-      record.setMateAlignmentStart(read.getMatePosition());
-    }
-    if (read.getTemplateLength() != null) {
-      record.setInferredInsertSize(read.getTemplateLength());
-    }
-    if (read.getOriginalBases() != null) {
-      record.setReadString(read.getOriginalBases());
-    }
-    if (read.getBaseQuality() != null) {
-      record.setBaseQualityString(read.getBaseQuality());
+    
+    List<Integer> baseQuality = read.getAlignedQuality();
+    if (baseQuality != null && baseQuality.size() > 0) {
+      byte[] qualityArray = new byte[baseQuality.size()];
+      int idx = 0;
+      for (Integer i : baseQuality) {
+        qualityArray[idx++] = i.byteValue();
+      }
+      record.setBaseQualities(qualityArray);
     }
 
-    Map<String, List<String>> tags = read.getTags();
+    Map<String, List<String>> tags = read.getInfo();
     if (tags != null) {
       for (String tag : tags.keySet()) {
         List<String> values = tags.get(tag);
@@ -217,8 +253,9 @@ public abstract class GenomicsConverter {
     return record;
   }
 
-  public static final SAMRecord makeSAMRecord(Read read, HeaderSection header) {
-    return makeSAMRecord(read, makeSAMFileHeader(header));
+  public static final SAMRecord makeSAMRecord(Read read, 
+      ReadGroupSet readGroupSet, List<Reference> references) {
+    return makeSAMRecord(read, makeSAMFileHeader(readGroupSet, references));
   }
 
   public static final SAMRecord makeSAMRecord(Read read) {
@@ -226,184 +263,84 @@ public abstract class GenomicsConverter {
   }
 
   /**
-   * Generates a HeaderSection from a SAMFileHeader.
-   * Lost fields:
-   * FileUri, RefSequences.md5Checksum, RefSequences.uri, ReadGroups.ProcessingProgram,
-   * ReadGroups.ReadGroupId, ProgramRecords.ProgramGroupId, ReferenceSequence.uri, etc
+   * Generates a SAMFileHeader from a ReadGroupSet and Reference metadata
    */
-  public static final HeaderSection makeHeaderSection(SAMFileHeader samHeader) {
-    HeaderSection header = new HeaderSection();
-
-    Header HD = new Header();
-    HD.setVersion(samHeader.getVersion());
-    HD.setSortingOrder(samHeader.getSortOrder().toString());
-    header.setHeaders(Lists.newArrayList(HD));
-
-    if (samHeader.getSequenceDictionary() != null 
-        && samHeader.getSequenceDictionary().getSequences() != null) {
-      List<ReferenceSequence> SQList = Lists.newArrayList();
-      for (SAMSequenceRecord sequence : samHeader.getSequenceDictionary().getSequences()) {
-        ReferenceSequence SQ = new ReferenceSequence();
-        SQ.setAssemblyId(sequence.getAssembly());
-        SQ.setLength(sequence.getSequenceLength());
-        SQ.setName(sequence.getSequenceName());
-        SQ.setSpecies(sequence.getSpecies());
-        SQList.add(SQ);
-      }
-      header.setRefSequences(SQList);
-    }
-
-    if (samHeader.getReadGroups() != null) {
-      List<ReadGroup> RGList = Lists.newArrayList();
-      for (SAMReadGroupRecord readgroup : samHeader.getReadGroups()) {
-        ReadGroup RG = new ReadGroup();
-        if(readgroup.getRunDate() != null) {
-          Calendar calendar = GMT_CALENDAR;
-          calendar.setTime(readgroup.getRunDate());
-          RG.setDate(DatatypeConverter.printDateTime(calendar));
-        }
-        RG.setDescription(readgroup.getDescription());
-        RG.setFlowOrder(readgroup.getFlowOrder());
-        RG.setId(readgroup.getId());
-        RG.setKeySequence(readgroup.getKeySequence());
-        RG.setLibrary(readgroup.getLibrary());
-        RG.setPlatformUnit(readgroup.getPlatformUnit());
-        RG.setPredictedInsertSize(readgroup.getPredictedMedianInsertSize());
-        RG.setSample(readgroup.getSample());
-        RG.setSequencingCenterName(readgroup.getSequencingCenter());
-        RG.setSequencingTechnology(readgroup.getPlatform());
-        RGList.add(RG);
-      }
-      header.setReadGroups(RGList);
-    }
-
-    if (samHeader.getProgramRecords() != null) {
-      List<Program> PGList = Lists.newArrayList();
-      for (SAMProgramRecord program : samHeader.getProgramRecords()) {
-        Program PG = new Program();
-        PG.setCommandLine(program.getCommandLine());
-        PG.setId(program.getProgramGroupId());
-        PG.setName(program.getProgramName());
-        PG.setPrevProgramId(program.getPreviousProgramGroupId());
-        PG.setVersion(program.getProgramVersion());
-        PGList.add(PG);
-      }
-      header.setPrograms(PGList);
-    }
-
-    if (samHeader.getComments() != null) {
-      List<String> COList = Lists.newArrayList(); 
-      for (String comment : samHeader.getComments()) {
-        // SAMFileHeader makes all comments have a @CO\t prefix
-        COList.add(comment.replaceAll("@CO\t", ""));
-      }
-      header.setComments(COList);
-    }
-
-    return header;
-  }
-
-  /**
-   * Genereates a SAMFileHeader from a HeaderSection.
-   * NOTE: Version field is not setable and @CO\t is prepended to all comments
-   */
-  public static final SAMFileHeader makeSAMFileHeader(HeaderSection header) {
+  public static final SAMFileHeader makeSAMFileHeader(ReadGroupSet readGroupSet,
+      List<Reference> references) {
     SAMFileHeader samHeader = new SAMFileHeader();
-
-    Header HD = GenomicsUtils.getHeader(header);
-    if (HD != null && HD.getSortingOrder() != null) {
-      samHeader.setSortOrder(SAMFileHeader.SortOrder.valueOf(HD.getSortingOrder()));
-    }
-
-    if (header.getRefSequences() != null) {
+    
+    // Reads are always returned in coordinate order form the API.
+    samHeader.setSortOrder(SAMFileHeader.SortOrder.coordinate);
+    
+    if (references != null && references.size() > 0) {
       SAMSequenceDictionary dict = new SAMSequenceDictionary();
-      for (ReferenceSequence SQ : header.getRefSequences()) {
-        if (SQ.getName() != null && SQ.getLength() != null) {
-          SAMSequenceRecord sequence = new SAMSequenceRecord(SQ.getName(), SQ.getLength());
-          if (SQ.getAssemblyId() != null) {
-            sequence.setAssembly(SQ.getAssemblyId());
-          }
-          if (SQ.getSpecies() != null) {
-            sequence.setSpecies(SQ.getSpecies());
-          }
+      for (Reference reference : references) {
+        if (reference.getName() != null && reference.getLength() != null) {
+          SAMSequenceRecord sequence = new SAMSequenceRecord(reference.getName(), 
+              reference.getLength().intValue());
           dict.addSequence(sequence);
         }
       }
       samHeader.setSequenceDictionary(dict);
     }
 
-    if (header.getReadGroups() != null) {
+    List<SAMProgramRecord> programs = null;
+    if (readGroupSet.getReadGroups() != null && readGroupSet.getReadGroups().size() > 0) {
       List<SAMReadGroupRecord> readgroups = Lists.newArrayList();
-      for (ReadGroup RG : header.getReadGroups()) {
+      for (ReadGroup RG : readGroupSet.getReadGroups()) {
         if (RG.getId() != null) {
-          SAMReadGroupRecord readgroup = new SAMReadGroupRecord(RG.getId());
-          if (RG.getDate() != null) {
-            readgroup.setRunDate(DatatypeConverter.parseDateTime(RG.getDate()).getTime());
-          }
+          SAMReadGroupRecord readgroup = new SAMReadGroupRecord(RG.getName());
           if (RG.getDescription() != null) {
             readgroup.setDescription(RG.getDescription());
-          }
-          if (RG.getFlowOrder() != null) {
-            readgroup.setFlowOrder(RG.getFlowOrder());
-          }
-          if (RG.getKeySequence() != null) {
-            readgroup.setKeySequence(RG.getKeySequence());
-          }
-          if (RG.getLibrary() != null) {
-            readgroup.setLibrary(RG.getLibrary());
-          }
-          if (RG.getPlatformUnit() != null) {
-            readgroup.setPlatformUnit(RG.getPlatformUnit());
           }
           if (RG.getPredictedInsertSize() != null) {
             readgroup.setPredictedMedianInsertSize(RG.getPredictedInsertSize());
           }
-          if (RG.getSample() != null) {
-            readgroup.setSample(RG.getSample());
+          if (RG.getSampleId() != null) {
+            readgroup.setSample(RG.getSampleId());
           }
-          if (RG.getSequencingCenterName() != null) {
-            readgroup.setSequencingCenter(RG.getSequencingCenterName());
-          }
-          if (RG.getSequencingTechnology() != null) {
-            readgroup.setPlatform(RG.getSequencingTechnology());
+          if (RG.getExperiment() != null) {
+            if (RG.getExperiment().getLibraryId() != null) {
+              readgroup.setLibrary(RG.getExperiment().getLibraryId());
+            }
+            if (RG.getExperiment().getSequencingCenter() != null) {
+              readgroup.setSequencingCenter(RG.getExperiment().getSequencingCenter());
+            }
+            if (RG.getExperiment().getInstrumentModel() != null) {
+              readgroup.setPlatform(RG.getExperiment().getInstrumentModel());
+            }
+            if (RG.getExperiment().getPlatformUnit() != null) {
+              readgroup.setPlatformUnit(RG.getExperiment().getPlatformUnit());
+            }
           }
           readgroups.add(readgroup);
         }
+        if (RG.getPrograms() != null && RG.getPrograms().size() > 0) {
+          if (programs == null) {
+            programs = Lists.newArrayList();
+          }
+          for (ReadGroupProgram PG : RG.getPrograms()) {
+            SAMProgramRecord program = new SAMProgramRecord(PG.getId());
+            if (PG.getCommandLine() != null) {
+              program.setCommandLine(PG.getCommandLine());
+            }
+            if (PG.getName() != null) {
+              program.setProgramName(PG.getName());
+            }
+            if (PG.getPrevProgramId() != null) {
+              program.setPreviousProgramGroupId(PG.getPrevProgramId());
+            }
+            if (PG.getVersion() != null) {
+              program.setProgramVersion(PG.getVersion());
+            }
+            programs.add(program);
+          }
+        }
       }
       samHeader.setReadGroups(readgroups);
-    }
-
-    if (header.getPrograms() != null) {
-      List<SAMProgramRecord> programs = Lists.newArrayList();
-      for (Program PG : header.getPrograms()) {
-        if (PG.getId() != null) {
-          SAMProgramRecord program = new SAMProgramRecord(PG.getId());
-          if (PG.getCommandLine() != null) {
-            program.setCommandLine(PG.getCommandLine());
-          }
-          if (PG.getName() != null) {
-            program.setProgramName(PG.getName());
-          }
-          if (PG.getPrevProgramId() != null) {
-            program.setPreviousProgramGroupId(PG.getPrevProgramId());
-          }
-          if (PG.getVersion() != null) {
-            program.setProgramVersion(PG.getVersion());
-          }
-          programs.add(program);
-        }
+      if (programs != null) {
+        samHeader.setProgramRecords(programs);
       }
-      samHeader.setProgramRecords(programs);
-    }
-
-    if (header.getComments() != null) {
-      List<String> comments = Lists.newArrayList();
-      for (String CO : header.getComments()) {
-        if (CO != null) {
-          comments.add(CO);
-        }
-      }
-      samHeader.setComments(comments);
     }
 
     return samHeader;

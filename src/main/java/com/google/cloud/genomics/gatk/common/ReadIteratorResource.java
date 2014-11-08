@@ -15,13 +15,15 @@ limitations under the License.
 */
 package com.google.cloud.genomics.gatk.common;
 
-import com.google.api.services.genomics.model.HeaderSection;
 import com.google.api.services.genomics.model.Read;
+import com.google.api.services.genomics.model.ReadGroupSet;
+import com.google.api.services.genomics.model.Reference;
 
 import htsjdk.samtools.SAMFileHeader;
 import htsjdk.samtools.SAMRecord;
 
 import java.util.Iterator;
+import java.util.List;
 
 /**
  * Provides reads data in the from of SAMRecords and SAMFileHeader, by wrapping
@@ -29,21 +31,32 @@ import java.util.Iterator;
  * GenomicsConverter.
  */
 public class ReadIteratorResource {
-  private HeaderSection header;
+  private ReadGroupSet readGroupSet;
+  private List<Reference> references;
   private Iterable<Read> iterable;
   
-  public ReadIteratorResource(HeaderSection header, Iterable<Read> iterable) {
+  public ReadIteratorResource(ReadGroupSet readGroupSet, List<Reference> references,
+      Iterable<Read> iterable) {
     super();
-    this.header = header;
+    this.readGroupSet = readGroupSet;
+    this.references = references;
     this.iterable = iterable;
   }
-  
-  public HeaderSection getHeader() {
-    return header;
+
+  public ReadGroupSet getReadGroupSet() {
+    return readGroupSet;
   }
   
-  public void setHeader(HeaderSection header) {
-    this.header = header;
+  public void setReadGroupSet(ReadGroupSet readGroupSet) {
+    this.readGroupSet = readGroupSet;
+  }
+  
+  public List<Reference> getReferences() {
+    return references;
+  }
+
+  public void setReferences(List<Reference> references) {
+    this.references = references;
   }
   
   public Iterable<Read> getIterable() {
@@ -55,7 +68,7 @@ public class ReadIteratorResource {
   }
   
   public SAMFileHeader getSAMFileHeader() {
-    return GenomicsConverter.makeSAMFileHeader(getHeader());
+    return GenomicsConverter.makeSAMFileHeader(getReadGroupSet(), getReferences());
   }
   
   public Iterable<SAMRecord> getSAMRecordIterable() {
