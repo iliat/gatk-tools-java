@@ -24,20 +24,25 @@ import com.google.api.client.http.HttpRequest;
 import com.google.api.client.http.HttpRequestInitializer;
 import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.api.services.genomics.Genomics;
-import com.google.api.services.genomics.model.HeaderSection;
 import com.google.api.services.genomics.model.Read;
-import com.google.api.services.genomics.model.Readset;
+import com.google.api.services.genomics.model.ReadGroup;
+import com.google.api.services.genomics.model.ReadGroupSet;
+import com.google.api.services.genomics.model.Reference;
+import com.google.api.services.genomics.model.ReferenceSet;
 import com.google.api.services.genomics.model.SearchReadsRequest;
 import com.google.cloud.genomics.utils.GenomicsFactory;
 import com.google.cloud.genomics.utils.Paginator;
 import com.google.common.base.Suppliers;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 
 import java.io.File;
 import java.io.IOException;
-import java.math.BigInteger;
 import java.security.GeneralSecurityException;
 import java.util.Arrays;
-import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.logging.Logger;
 
 /**
@@ -126,39 +131,33 @@ public class GenomicsApiDataSource {
     // TODO(iliat): implement API retries and using access key for public
     // datasets
     try {
-      Readset readset = stub.readsets().get(readsetId).execute();
-      String datasetId = readset.getDatasetId();
+      ReadGroupSet readGroupSet = stub.readgroupsets().get(readsetId).execute();
+      String datasetId = readGroupSet.getDatasetId();
       LOG.info("Found readset " + readsetId + ", dataset " + datasetId);
       
-      List<HeaderSection> headers = readset.getFileData();
-      if (headers == null || headers.size() == 0) {
-        throw new IOException("No headers found in the readset " + readsetId);
+      final Map<String, Reference> references = getReferences(readGroupSet);
+      final Reference reference = references.get(sequenceName);
+      if (reference != null) {
+          LOG.info("Reference for sequence name " + sequenceName + " is found, length="
+              + String.valueOf(reference.getLength()));
+      } else {
+        LOG.warning("Reference for sequence name " + sequenceName + " not found");
       }
-      if (headers.size() > 1) {
-        throw new IOException("Multiple (" + String.valueOf(headers.size()) + 
-            ") headers found in the readset " + readsetId);
-      }
-      HeaderSection headerSection = headers.get(0);
-      if (headerSection == null) {
-        throw new IOException("Invalid header section in readset " + readsetId);
-      }
-      
       LOG.info("Searching for reads in sequence " + sequenceName + 
           String.valueOf(sequenceStart) + "-" + String.valueOf(sequenceEnd));
       Paginator.Reads searchReads = Paginator.Reads.create(stub);
       SearchReadsRequest readRequest = new SearchReadsRequest()
-        .setReadsetIds(Arrays.asList(readsetId));
-      if (!sequenceName.isEmpty()) {
-        readRequest.setSequenceName(sequenceName);
-      }
+        .setReadGroupSetIds(Arrays.asList(readsetId))
+        .setReferenceName(sequenceName);
       if (sequenceStart != 0) {
-        readRequest.setSequenceStart(BigInteger.valueOf(sequenceStart));
+        readRequest.setStart(Long.valueOf(sequenceStart));
       }
       if (sequenceEnd != 0) {
-        readRequest.setSequenceEnd(BigInteger.valueOf(sequenceEnd));
+        readRequest.setEnd(Long.valueOf(sequenceEnd));
       }
       Iterable<Read> reads = searchReads.search(readRequest); 
-      return new ReadIteratorResource(headerSection, reads);
+      return new ReadIteratorResource(readGroupSet, 
+          Lists.newArrayList(references.values()), reads);
     } catch (GoogleJsonResponseException ex) {
       LOG.warning("Genomics API call failure: " + ex.getMessage());
       if (ex.getDetails() == null) {
@@ -166,5 +165,43 @@ public class GenomicsApiDataSource {
       }
       throw new IOException(ex.getDetails().getMessage());
     }
+  }
+  
+  /**
+   * Collect a list of references mentioned in this Readgroupset and get their meta data.
+   * @throws GeneralSecurityException 
+   * @throws IOException 
+   */
+  private Map<String, Reference> getReferences(ReadGroupSet readGroupSet) 
+      throws IOException, GeneralSecurityException {
+    Set<String> referenceSetIds = Sets.newHashSet();
+    if (readGroupSet.getReferenceSetId() != null) {
+      referenceSetIds.add(readGroupSet.getReferenceSetId());
+    }
+    if (readGroupSet.getReadGroups() != null) {
+      for (ReadGroup readGroup : readGroupSet.getReadGroups()) {
+        if (readGroup.getReferenceSetId() != null) {
+          referenceSetIds.add(readGroup.getReferenceSetId());
+        }
+      }
+    }
+    
+    Map<String, Reference> references = Maps.newHashMap();
+    for (String referenceSetId : referenceSetIds) {
+      LOG.info("Getting reference set " + referenceSetId);
+      ReferenceSet referenceSet = getApi().referencesets().get(referenceSetId).execute();
+      if (referenceSet == null || referenceSet.getReferenceIds() == null) {
+        continue;
+      }
+      for (String referenceId : referenceSet.getReferenceIds()) {
+        LOG.info("Getting reference  " + referenceId);
+        Reference reference = getApi().references().get(referenceId).execute();
+        if (reference.getName() != null) {
+          references.put(reference.getName(), reference);
+          LOG.info("Adding reference  " + reference.getName());
+        }
+      }
+    }
+    return references;
   }
 }

@@ -35,7 +35,7 @@ import java.net.URL;
  */
 public class SamReaderExample {
   static String GA4GH_URL = 
-      "https://www.googleapis.com/genomics/v1beta/readsets/CMvnhpKTFhCbiObuzvm7nOoB/*/";
+      "https://www.googleapis.com/genomics/v1beta2/readgroupsets/CLqN8Z3sDRCwgrmdkOXjn_sB/*/";
   
   public static void main(String[] args) {  
     try {
