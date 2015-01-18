@@ -29,20 +29,25 @@ import com.google.api.services.genomics.model.ReadGroupSet;
 import com.google.api.services.genomics.model.Reference;
 import com.google.common.collect.Lists;
 
-import htsjdk.samtools.SAMTagUtil;
-
 import htsjdk.samtools.SAMFileHeader;
 import htsjdk.samtools.SAMProgramRecord;
 import htsjdk.samtools.SAMReadGroupRecord;
 import htsjdk.samtools.SAMRecord;
 import htsjdk.samtools.SAMSequenceDictionary;
 import htsjdk.samtools.SAMSequenceRecord;
+import htsjdk.samtools.SAMTextHeaderCodec;
+import htsjdk.samtools.SamFileHeaderMerger;
 import htsjdk.samtools.TagValueAndUnsignedArrayFlag;
 import htsjdk.samtools.TextTagCodec;
+import htsjdk.samtools.ValidationStringency;
+import htsjdk.samtools.util.StringLineReader;
 
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Logger;
 
 /**
  * A utility class for converting between genomics data representations by the Cloud Genomics API
@@ -57,7 +62,10 @@ import java.util.Map;
  *      HeaderSection <-> SAMFileHeader
  */
 public abstract class GenomicsConverter {
+  private static final Logger LOG = Logger.getLogger(GenomicsConverter.class.getName());
   
+  // Prefix for SAM tag in the info array of ReadGroupSet.
+  private static final String HEADER_SAM_TAG_INFO_KEY_PREFIX = "SAM:";
   /** 
    * Standard tags defined in SAM spec. and their types.
    * See http://samtools.github.io/hts-specs/SAMv1.pdf, section 1.5.
@@ -115,6 +123,9 @@ public abstract class GenomicsConverter {
     SAM_TAGS.put("U2", "Z");
     SAM_TAGS.put("UQ", "i");
     
+    SAM_TAGS.put("MF", "i");
+    SAM_TAGS.put("Aq", "i");
+    
     CIGAR_OPERATIONS = new HashMap<String, String>();
     CIGAR_OPERATIONS.put("ALIGNMENT_MATCH","M");
     CIGAR_OPERATIONS.put("CLIP_HARD", "H");
@@ -144,47 +155,51 @@ public abstract class GenomicsConverter {
     if (read.getReadGroupId() != null) {
       record.setAttribute("RG" ,read.getReadGroupId());
     }
-    { // Set flags, as advised in http://google-genomics.readthedocs.org/en/latest/migrating_tips.html
-      int flags = 0;
+    // Set flags, as advised in http://google-genomics.readthedocs.org/en/latest/migrating_tips.html
+    int flags = 0;
 
-      flags += (read.getNumberReads() != null && 
-          read.getNumberReads() == 2) ? 1 : 0 ;// read_paired
-      flags += (read.getProperPlacement() != null &&
-          read.getProperPlacement()) ? 2 : 0; // read_proper_pair
-      final boolean unmapped = (read.getAlignment() == null || 
-          read.getAlignment().getPosition() == null || 
-          read.getAlignment().getPosition().getPosition() == null);
-      flags += unmapped ? 4 : 0;  // read_unmapped
-      flags += (read.getNextMatePosition() == null || 
-          read.getNextMatePosition().getPosition() == null) ? 8 : 0; // mate_unmapped
-      flags += (read.getAlignment() != null && 
-          read.getAlignment().getPosition() != null && 
-          read.getAlignment().getPosition().getReverseStrand()) ? 16 : 0 ; // read_reverse_strand
-      flags += (read.getNextMatePosition() != null &&
-          read.getNextMatePosition().getReverseStrand()) ? 32 : 0;  // mate_reverse_strand
-      flags += (read.getReadNumber() != null && 
-          read.getReadNumber() == 0) ? 64 : 0; // first_in_pair
-      flags += (read.getReadNumber() != null && 
-          read.getReadNumber() == 1) ? 128 : 0;  // second_in_pair
-      flags += (read.getSecondaryAlignment() != null 
-          && read.getSecondaryAlignment()) ? 256 : 0; // secondary_alignment
-      flags += (read.getFailedVendorQualityChecks() != null &&
-          read.getFailedVendorQualityChecks()) ? 512 : 0;// failed_quality_check
-      flags += (read.getDuplicateFragment() != null && 
-          read.getDuplicateFragment()) ? 1024 : 0; // duplicate_read
-      flags += (read.getSupplementaryAlignment() != null &&
-          read.getSupplementaryAlignment()) ? 2048 : 0; //supplementary_alignment
-      record.setFlags(flags);
-    }
+    final boolean paired = (read.getNumberReads() != null && 
+        read.getNumberReads() == 2);
+    flags += paired ? 1 : 0 ;// read_paired
+    flags += (read.getProperPlacement() != null &&
+        read.getProperPlacement()) ? 2 : 0; // read_proper_pair
+    final boolean unmapped = (read.getAlignment() == null || 
+        read.getAlignment().getPosition() == null || 
+        read.getAlignment().getPosition().getPosition() == null);
+    flags += unmapped ? 4 : 0;  // read_unmapped
+    flags += ((read.getNextMatePosition() == null || 
+        read.getNextMatePosition().getPosition() == null)) ? 8 : 0; // mate_unmapped
+    flags += (read.getAlignment() != null && 
+        read.getAlignment().getPosition() != null && 
+        read.getAlignment().getPosition().getReverseStrand()) ? 16 : 0 ; // read_reverse_strand
+    flags += (read.getNextMatePosition() != null &&
+        read.getNextMatePosition().getReverseStrand()) ? 32 : 0;  // mate_reverse_strand
+    flags += (read.getReadNumber() != null && 
+        read.getReadNumber() == 0) ? 64 : 0; // first_in_pair
+    flags += (read.getReadNumber() != null && 
+        read.getReadNumber() == 1) ? 128 : 0;  // second_in_pair
+    flags += (read.getSecondaryAlignment() != null 
+        && read.getSecondaryAlignment()) ? 256 : 0; // secondary_alignment
+    flags += (read.getFailedVendorQualityChecks() != null &&
+        read.getFailedVendorQualityChecks()) ? 512 : 0;// failed_quality_check
+    flags += (read.getDuplicateFragment() != null && 
+        read.getDuplicateFragment()) ? 1024 : 0; // duplicate_read
+    flags += (read.getSupplementaryAlignment() != null &&
+        read.getSupplementaryAlignment()) ? 2048 : 0; //supplementary_alignment
+    record.setFlags(flags);
+    
+    String referenceName = null;
+    Long alignmentStart = null;
     if (read.getAlignment() != null) {
-      if (read.getAlignment().getPosition() !=null ) {
-        String referenceName = read.getAlignment().getPosition().getReferenceName();
+      if (read.getAlignment().getPosition() != null ) {
+        referenceName = read.getAlignment().getPosition().getReferenceName();
         if (referenceName != null) {
           record.setReferenceName(referenceName);
         }
-        Long position = read.getAlignment().getPosition().getPosition();
-        if (position != null) {
-          record.setAlignmentStart(position.intValue());
+        alignmentStart = read.getAlignment().getPosition().getPosition();
+        if (alignmentStart != null) {
+          // API positions are 0-based and SAMRecord is 1-based.
+          record.setAlignmentStart(alignmentStart.intValue() + 1);
         }
       }
       Integer mappingQuality = read.getAlignment().getMappingQuality();
@@ -203,6 +218,7 @@ public abstract class GenomicsConverter {
         record.setCigarString(cigarString.toString());
       }
     }
+
     if (read.getNextMatePosition() != null) {
       String mateReferenceName = read.getNextMatePosition().getReferenceName();
       if (mateReferenceName != null) {
@@ -210,9 +226,11 @@ public abstract class GenomicsConverter {
       }
       Long matePosition = read.getNextMatePosition().getPosition();
       if (matePosition != null) {
-        record.setMateAlignmentStart(matePosition.intValue());
+        // API positions are 0-based and SAMRecord is 1-based.
+        record.setMateAlignmentStart(matePosition.intValue() + 1);
       }
-    }
+    } 
+    
     if (read.getFragmentLength() != null) {
       record.setInferredInsertSize(read.getFragmentLength());
     }
@@ -254,11 +272,13 @@ public abstract class GenomicsConverter {
   }
 
   public static final SAMRecord makeSAMRecord(Read read, 
-      ReadGroupSet readGroupSet, List<Reference> references) {
+      ReadGroupSet readGroupSet, List<Reference> references, 
+      boolean forceSetMatePositionToThisPosition) {
     return makeSAMRecord(read, makeSAMFileHeader(readGroupSet, references));
   }
 
-  public static final SAMRecord makeSAMRecord(Read read) {
+  public static final SAMRecord makeSAMRecord(Read read, 
+      boolean forceSetMatePositionToThisPosition) {
     return makeSAMRecord(read, new SAMFileHeader());
   }
 
@@ -267,7 +287,9 @@ public abstract class GenomicsConverter {
    */
   public static final SAMFileHeader makeSAMFileHeader(ReadGroupSet readGroupSet,
       List<Reference> references) {
+    List<SAMFileHeader> samHeaders = new ArrayList<SAMFileHeader>(2);
     SAMFileHeader samHeader = new SAMFileHeader();
+    samHeaders.add(samHeader);
     
     // Reads are always returned in coordinate order form the API.
     samHeader.setSortOrder(SAMFileHeader.SortOrder.coordinate);
@@ -283,13 +305,19 @@ public abstract class GenomicsConverter {
       }
       samHeader.setSequenceDictionary(dict);
     }
-
+    
     List<SAMProgramRecord> programs = null;
     if (readGroupSet.getReadGroups() != null && readGroupSet.getReadGroups().size() > 0) {
       List<SAMReadGroupRecord> readgroups = Lists.newArrayList();
       for (ReadGroup RG : readGroupSet.getReadGroups()) {
-        if (RG.getId() != null) {
-          SAMReadGroupRecord readgroup = new SAMReadGroupRecord(RG.getName());
+        if (RG.getId() != null && RG.getName() != null) {
+          String readGroupName = RG.getName();
+          if (readGroupName == null|| readGroupName.isEmpty()) {
+            // We have to set the name to something, so if for some reason the proper
+            // SAM tag for name was missing, we will use the generated id.
+            readGroupName = RG.getId();
+          }
+          SAMReadGroupRecord readgroup = new SAMReadGroupRecord(readGroupName);
           if (RG.getDescription() != null) {
             readgroup.setDescription(RG.getDescription());
           }
@@ -342,7 +370,45 @@ public abstract class GenomicsConverter {
         samHeader.setProgramRecords(programs);
       }
     }
-
-    return samHeader;
+    
+    // If BAM file is imported with non standard reference, the SQ tags
+    // are preserved in the info key/value array.
+    // Attempt to read them form there.
+    @SuppressWarnings("unchecked")
+    Map<String, List<String>> tags = 
+        (Map<String, List<String>>)readGroupSet.get("info");
+    if (tags != null) {
+      LOG.info("Getting @SQ header data from readgroupset info");
+      StringBuffer buf = new StringBuffer();
+      for (String tag : tags.keySet()) {
+        if (!tag.startsWith(HEADER_SAM_TAG_INFO_KEY_PREFIX)) {
+          continue;
+        }
+        final String headerName = tag.substring(HEADER_SAM_TAG_INFO_KEY_PREFIX.length());
+        List<String> values = tags.get(tag);
+        if (values == null) {
+          continue;
+        }
+        for (String value : values) {
+          buf.append(headerName);
+          buf.append("\t");
+          buf.append(value);
+          buf.append("\r\n");
+        }
+        final String headerString = buf.toString();
+        final SAMTextHeaderCodec codec = new SAMTextHeaderCodec();
+        codec.setValidationStringency(ValidationStringency.STRICT);
+        final SAMFileHeader parsedHeader = codec.decode(
+            new StringLineReader(headerString), null);
+        samHeaders.add(parsedHeader);
+      }
+    }
+    
+    final SAMFileHeader finalHeader = 
+        (new SamFileHeaderMerger(
+            SAMFileHeader.SortOrder.coordinate, samHeaders, true))
+        .getMergedHeader();
+    
+    return finalHeader;
   }  
 }
