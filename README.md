@@ -3,26 +3,38 @@ gatk-tools-java
 Tools for using Picard and GATK with Genomics API.
 
 - Common classes for getting Reads from GA4GH Genomics API and
-exposing them as SAMRecord "Iterable" resource. 
-These will be used for subsequent work on enabling HTSJDK to use APIs data as 
-input.
+exposing them as SAMRecord "Iterable" resource.
 
-- Ga4GHPicardRunner wrapper around Picard tools that allows for INPUTS into 
-Picard tools to be ga4gh:// urls.
+- Implementation of a custom reader that can be plugged into Picard tools
+to handle reading of the input data specified via a url and coming from GA4GH API.
+
+- Requires htsjdk version 1.128 and greater and Picard latest version (past this commit https://github.com/iliat/picard/commit/ebe987313d799d58b0673351b95d3ca91fed82bf).
+
+- A set of shell scripts (src/main/scripts) that demonstrate how to run Picard
+tools with Ga4GH custom reader.
+
+The typical command line would look like:
+java -jar \
+-Dsamjdk.custom_reader=https://www.googleapis.com/genomics,<location of gatk-tools-java jar> \
+-Dga4gh.client_secrets=<location of client_secrets.json>
+dist/picard.jar <ToolName \
+INPUT=<input url>
+
+E.g 
+java -jar \
+-Dsamjdk.custom_reader=https://www.googleapis.com/genomics,com.google.cloud.genomics.gatk.htsjdk.GA4GHReaderFactory,gatk-tools-java-1.0.jar \
+-Dga4gh.client_secrets=/client_secrets.json \
+dist/picard.jar ViewSam \
+INPUT=https://www.googleapis.com/genomics/v1beta2/readgroupsets/CK256frpGBD44IWHwLP22R4/
+The test read group set used here is the ex1_sorted.bam that can be found in testdata/ folder.
+The data has been uploaded to the cloud project: https://console.developers.google.com/project/genomics-test-data/
+
+- For Picard tools that have not yet been instrumented to work with a custom reader,
+you can use Ga4GHPicardRunner. 
+It is a wrapper around Picard tools that allows for INPUTS into 
+Picard tools to be ga4gh:// urls by consuming the data via the API and using pipes 
+to send it to Picard tool. 
 
 Build/Run:
 No Maven setup yet, builds and runs in Eclipse.
-
-Arguments for running:
---client_secrets_filename=<path to client_secrets.json> 
--path=<path to Picard tool jars>
--tool=ValidateSamFile.jar 
-INPUT=`ga4gh://www.googleapis.com/genomics/v1beta/readsets/<readset>/<sequence>/`
-E.g. `ga4gh://www.googleapis.com/genomics/v1beta/readsets/CLqN8Z3sDRCwgrmdkOXjn_sB/*/`
-
-Current limitations:
-(These will be removed in subsequent versions)
-- Supports only a single input so will not work for tools expecting 
-multiple INPUT parameters.
-- Supports only SAM format, not using any indexing (BAM/BAI) so may not be
-suitable for more complex tools.
+To build with ant: ant gatk-tools-java-jar.

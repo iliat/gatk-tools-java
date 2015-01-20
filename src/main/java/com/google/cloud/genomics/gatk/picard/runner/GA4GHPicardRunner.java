@@ -166,16 +166,17 @@ public class GA4GHPicardRunner {
    */
   private void buildPicardCommand() 
       throws IOException, GeneralSecurityException, URISyntaxException {
-    File picardToolPath = new File(picardPath, picardTool);
-    if (!picardToolPath.exists()) {
+    File picardJarPath = new File(picardPath, "picard.jar");
+    if (!picardJarPath.exists()) {
       throw new IOException("Picard tool not found at " + 
-          picardToolPath.getAbsolutePath());
+          picardJarPath.getAbsolutePath());
     }
     
     command.add("java");
     command.add(picardJVMArgs);
     command.add("-jar");
-    command.add(picardToolPath.getAbsolutePath());
+    command.add(picardJarPath.getAbsolutePath());
+    command.add(picardTool);
     
     for (String picardArg : picardArgs) {
       if (picardArg.startsWith(INPUT_PREFIX)) {

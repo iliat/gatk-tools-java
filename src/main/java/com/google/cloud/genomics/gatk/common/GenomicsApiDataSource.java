@@ -145,6 +145,10 @@ public class GenomicsApiDataSource {
       }
       LOG.info("Searching for reads in sequence " + sequenceName + 
           String.valueOf(sequenceStart) + "-" + String.valueOf(sequenceEnd));
+      UnmappedReads unmappedReads = null;
+      if (sequenceName.isEmpty()) {
+        unmappedReads = getUnmappedMatesOfMappedReads(readsetId); 
+      }
       Paginator.Reads searchReads = Paginator.Reads.create(stub);
       SearchReadsRequest readRequest = new SearchReadsRequest()
         .setReadGroupSetIds(Arrays.asList(readsetId))
@@ -156,8 +160,9 @@ public class GenomicsApiDataSource {
         readRequest.setEnd(Long.valueOf(sequenceEnd));
       }
       Iterable<Read> reads = searchReads.search(readRequest); 
+      
       return new ReadIteratorResource(readGroupSet, 
-          Lists.newArrayList(references.values()), reads);
+          Lists.newArrayList(references.values()), unmappedReads, reads);
     } catch (GoogleJsonResponseException ex) {
       LOG.warning("Genomics API call failure: " + ex.getMessage());
       if (ex.getDetails() == null) {
@@ -176,11 +181,16 @@ public class GenomicsApiDataSource {
       throws IOException, GeneralSecurityException {
     Set<String> referenceSetIds = Sets.newHashSet();
     if (readGroupSet.getReferenceSetId() != null) {
+      LOG.info("Found reference set from read group set " + 
+          readGroupSet.getReferenceSetId());
       referenceSetIds.add(readGroupSet.getReferenceSetId());
     }
     if (readGroupSet.getReadGroups() != null) {
+      LOG.info("Found read groups");
       for (ReadGroup readGroup : readGroupSet.getReadGroups()) {
         if (readGroup.getReferenceSetId() != null) {
+          LOG.info("Found reference set from read group: " + 
+              readGroup.getReferenceSetId());
           referenceSetIds.add(readGroup.getReferenceSetId());
         }
       }
@@ -203,5 +213,22 @@ public class GenomicsApiDataSource {
       }
     }
     return references;
+  }
+  
+  private UnmappedReads getUnmappedMatesOfMappedReads(String readsetId) 
+      throws GeneralSecurityException, IOException {
+    LOG.info("Collecting unmapped mates of mapped reads for injection");
+    final Paginator.Reads searchUnmappedReads = Paginator.Reads.create(getApi());
+    final SearchReadsRequest unmappedReadRequest = new SearchReadsRequest()
+      .setReadGroupSetIds(Arrays.asList(readsetId))
+      .setReferenceName("*");
+    final Iterable<Read> unmappedReadsIterable = searchUnmappedReads.search(unmappedReadRequest); 
+    final UnmappedReads unmappedReads = new UnmappedReads();
+    for (Read read : unmappedReadsIterable) {
+      unmappedReads.maybeAddRead(read);
+    }
+    LOG.info("Finished collecting unmapped mates of mapped reads: " + 
+        unmappedReads.getReadCount() + " found.");
+    return unmappedReads;
   }
 }

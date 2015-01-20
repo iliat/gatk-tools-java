@@ -102,7 +102,9 @@ public class GA4GHSamRecordIterator implements SAMRecordIterator{
   void seekMatchingRead()  {
     while (!isAtEnd()) {
       if (iterator == null || !iterator.hasNext()) {
-        LOG.info("Getting next interval from the API");
+        LOG.info("Getting " + 
+            (iterator == null ? "first" : "next") + 
+            "interval from the API");
         // We have hit an end (or this is first time) so we need to go fish
         // to the API.
         ReadIteratorResource resource = queryNextInterval();

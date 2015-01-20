@@ -31,6 +31,8 @@ public class GA4GHReaderFactory implements CustomReaderFactory.ICustomReaderFact
   public SamReader open(URL url) {
     try {
       return new GA4GHSamReader(url);
+    } catch (RuntimeException rex) {
+      throw rex;
     } catch (Exception ex) {
       LOG.warning("Error creating SamReader " + ex.toString());
       return null;

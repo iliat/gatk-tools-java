@@ -19,11 +19,16 @@ import com.google.api.services.genomics.model.Read;
 import com.google.api.services.genomics.model.ReadGroupSet;
 import com.google.api.services.genomics.model.Reference;
 
+import htsjdk.samtools.SAMRecordCoordinateComparator;
 import htsjdk.samtools.SAMFileHeader;
 import htsjdk.samtools.SAMRecord;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
+import java.util.logging.Logger;
 
 /**
  * Provides reads data in the from of SAMRecords and SAMFileHeader, by wrapping
@@ -31,15 +36,25 @@ import java.util.List;
  * GenomicsConverter.
  */
 public class ReadIteratorResource {
+  private static final Logger LOG = Logger.getLogger(ReadIteratorResource.class.getName());
+  
   private ReadGroupSet readGroupSet;
+  private SAMFileHeader cachedSAMFileHeader;
   private List<Reference> references;
   private Iterable<Read> iterable;
+  private UnmappedReads unmappedReads;
+  private Iterator<Read> unmappedMatesIterator;
+  private Iterator<SAMRecord> samePositionIterator;
+  private SAMRecord recordAtNextPosition;
+  private static Comparator<SAMRecord> samRecordCoordinateComparator = new SAMRecordCoordinateComparator();
   
   public ReadIteratorResource(ReadGroupSet readGroupSet, List<Reference> references,
+      UnmappedReads unmappedReads, 
       Iterable<Read> iterable) {
     super();
     this.readGroupSet = readGroupSet;
     this.references = references;
+    this.unmappedReads = unmappedReads;
     this.iterable = iterable;
   }
 
@@ -68,7 +83,11 @@ public class ReadIteratorResource {
   }
   
   public SAMFileHeader getSAMFileHeader() {
-    return GenomicsConverter.makeSAMFileHeader(getReadGroupSet(), getReferences());
+    if (cachedSAMFileHeader == null) {
+      cachedSAMFileHeader = 
+          GenomicsConverter.makeSAMFileHeader(getReadGroupSet(), getReferences());
+    }
+    return cachedSAMFileHeader;
   }
   
   public Iterable<SAMRecord> getSAMRecordIterable() {
@@ -78,21 +97,164 @@ public class ReadIteratorResource {
       @Override
       public Iterator<SAMRecord> iterator() {
         return new Iterator<SAMRecord>() {
-
+          private SAMRecord nextRecord = peek();
+          private Read mappedRead;
+          private final boolean injectingUnmappedPairsOfMappedRead = 
+              unmappedReads != null;
+          
           @Override
           public boolean hasNext() {
-            return readIterator.hasNext();
+            return nextRecord != null;
           }
 
           @Override
           public SAMRecord next() {
-            return GenomicsConverter.makeSAMRecord(readIterator.next(), 
-                header);
+            SAMRecord toReturn = nextRecord;
+            nextRecord = peek();
+            return toReturn;
           }
 
+          private SAMRecord peek() {
+            
+            // If we are traversing the list of reads at same position we
+            // have collected and sorted beforehand, return elements from the list until
+            // we exhaust it.
+            if (samePositionIterator != null && samePositionIterator.hasNext()) {
+              return samePositionIterator.next();
+            }
+            if (recordAtNextPosition == null) {
+              recordAtNextPosition = getNextSAMRecord();
+              if (recordAtNextPosition == null) {
+                return null;
+              }
+            }
+            
+            // Fetch more records and if they are all on the same position,
+            // collect them and sort them in HTSJDK coordinate order
+            // to satisfy expectations of Picard tools.
+            ArrayList<SAMRecord> readsAtSamePosition = null;
+            SAMRecord currentRecord;
+            while (true) {
+              currentRecord = recordAtNextPosition;
+              recordAtNextPosition = getNextSAMRecord();
+              if (recordAtNextPosition != null && 
+                  recordAtNextPosition.getAlignmentStart() == currentRecord.getAlignmentStart() &&
+                      recordAtNextPosition.getReferenceName() != null &&
+                      recordAtNextPosition.getReferenceName().equals(currentRecord.getReferenceName())) {
+                if (readsAtSamePosition == null) {
+                  readsAtSamePosition = new ArrayList<SAMRecord>(2);
+                  readsAtSamePosition.add(currentRecord);
+                }
+                readsAtSamePosition.add(recordAtNextPosition);
+              } else {
+                break;
+              }
+            }
+            if (readsAtSamePosition == null) {
+              return currentRecord;
+            }
+            if (readsAtSamePosition.size() >= 2) {
+              Collections.sort(readsAtSamePosition, samRecordCoordinateComparator);
+            }
+            samePositionIterator =  readsAtSamePosition.iterator();
+            return samePositionIterator.next();
+          }
+            
+          /**
+           * Fetches the next SAMRecord, dealing with Read->SAMRecord
+           * conversion and fixup of unmapped pairs of mapped reads.
+           */
+          private SAMRecord getNextSAMRecord() {
+            Read nextRead = getNextRead();
+            
+            if (nextRead == null) {
+              return null;
+            }
+            
+            SAMRecord record = GenomicsConverter.makeSAMRecord(nextRead, 
+                header);
+            
+            // See https://github.com/ga4gh/schemas/issues/224
+            // We fix up both the mapped read of unmapped mate pair and the mate 
+            // pair itself according to SAM best practices:
+            // "For a unmapped paired-end or mate-pair read whose mate is mapped, 
+            // the unmapped read should have RNAME and POS identical to its mate."
+            if (unmappedMatesIterator != null && mappedRead != null) {
+              if (mappedRead != nextRead) {
+                record.setReferenceName(mappedRead.getAlignment().getPosition().getReferenceName());
+                record.setAlignmentStart(record.getMateAlignmentStart());
+                record.setReadNegativeStrandFlag(record.getMateNegativeStrandFlag());
+              } else {
+                record.setMateReferenceName(record.getReferenceName());
+                record.setMateAlignmentStart(record.getAlignmentStart());
+                record.setMateNegativeStrandFlag(record.getReadNegativeStrandFlag()); 
+              }
+            }
+            
+            return record;
+          }
+          
+          /**
+           * Fetches next read, dealing with injection of unmapped mate pairs if needed.
+           */
+          private Read getNextRead() {
+            // Are we iterating through unmapped mates ?
+            if (unmappedMatesIterator != null) {
+              if (unmappedMatesIterator.hasNext()) {
+                return unmappedMatesIterator.next();
+              } else {
+                unmappedMatesIterator = null;
+                mappedRead = null;
+              }
+            }
+            
+            Read nextReadToReturn = getNextReadFromMainIterator();
+            if (nextReadToReturn == null) {
+              return null;
+            }
+              
+            // If we have unmapped mates to inject, see if we need to do it now
+            if (injectingUnmappedPairsOfMappedRead && 
+                UnmappedReads.isMappedMateOfUnmappedRead(nextReadToReturn)) {
+              final  ArrayList<Read> unmappedMates = unmappedReads
+                    .getUnmappedMates(nextReadToReturn);
+              if (unmappedMates != null) {
+                  unmappedMatesIterator = unmappedMates.iterator();
+                  mappedRead = nextReadToReturn;
+              }
+            }
+            return nextReadToReturn;
+          }
+          
+          /**
+           * Fetches next read from the underlying iterator, taking care
+           * to skipped unmapped mate pairs that we have injected elsewhere.
+           */
+          private Read getNextReadFromMainIterator() {
+            Read result;
+            if (readIterator.hasNext()) {
+              result = readIterator.next();
+              
+              if (injectingUnmappedPairsOfMappedRead) {
+                // If we are going through unmapped reads, skipped the ones
+                // that are mates of mapped ones - we would have injected them.
+                while (UnmappedReads.isUnmappedMateOfMappedRead(result)) { 
+                  if (readIterator.hasNext()) {
+                    result = readIterator.next();
+                  } else {
+                    return null;
+                  }
+                }
+              }
+            } else {
+              return null;
+            }
+            return result;
+          }
+          
           @Override
           public void remove() {
-            readIterator.remove(); 
+            LOG.warning("ReadIteratorResource does not implement remove() method");
           }
         };
       }
