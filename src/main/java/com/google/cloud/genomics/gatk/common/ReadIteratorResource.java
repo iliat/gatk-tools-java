@@ -115,7 +115,9 @@ public class ReadIteratorResource {
           }
 
           private SAMRecord peek() {
-            
+            if (!injectingUnmappedPairsOfMappedRead) {
+              return getNextSAMRecord();
+            }
             // If we are traversing the list of reads at same position we
             // have collected and sorted beforehand, return elements from the list until
             // we exhaust it.

@@ -17,6 +17,7 @@ package com.google.cloud.genomics.gatk.htsjdk;
 
 import com.google.cloud.genomics.gatk.common.GenomicsApiDataSource;
 import com.google.cloud.genomics.gatk.common.ReadIteratorResource;
+import com.google.common.base.Stopwatch;
 
 import htsjdk.samtools.SAMFileHeader;
 import htsjdk.samtools.SAMFileHeader.SortOrder;
@@ -31,12 +32,14 @@ import java.util.logging.Logger;
  * HTSJDK's SAMRecordIterator.
  * Iterates over data returned from the API and when needed
  * re-queries the API for more data.
- * Since the API always return *overalpping* reads and SAMRecordIterator
+ * Since the API always return *overlapping* reads and SAMRecordIterator
  * supports contained and start-at queries, this class filters reads
  * returned from the API to make sure they conform to the requested intervals.
  */
 public class GA4GHSamRecordIterator implements SAMRecordIterator{
   private static final Logger LOG = Logger.getLogger(GA4GHSamRecordIterator.class.getName());
+
+  private static final long STATS_DUMP_INTERVAL_READS = 100000;
   
   Iterator<SAMRecord> iterator;
   GenomicsApiDataSource dataSource;
@@ -46,6 +49,8 @@ public class GA4GHSamRecordIterator implements SAMRecordIterator{
   boolean hasNext;
   SAMRecord nextRead;
   SAMFileHeader header;
+  long processedReads;
+  Stopwatch timer;
   
   public GA4GHSamRecordIterator(GenomicsApiDataSource dataSource,
       String readSetId,
@@ -53,6 +58,7 @@ public class GA4GHSamRecordIterator implements SAMRecordIterator{
     this.dataSource = dataSource;
     this.readSetId = readSetId;
     this.intervals = intervals;
+    this.timer = new Stopwatch();
     seekMatchingRead();
   }
   
@@ -72,13 +78,18 @@ public class GA4GHSamRecordIterator implements SAMRecordIterator{
   
   /** Re-queries the API for the next interval */
   ReadIteratorResource queryNextInterval() {
+    Stopwatch w = new Stopwatch();
+    w.start();
     if (!isAtEnd()) {
       intervalIndex++;
     }
     if (isAtEnd()) {
       return null;
     }
-    return queryForInterval(currentInterval());
+    ReadIteratorResource result =  queryForInterval(currentInterval());
+    LOG.info("Interval query took: " + w);
+    startTiming();
+    return result;
   }
   
   /** Queries the API for an interval and returns the iterator resource, or null if failed */
@@ -145,6 +156,7 @@ public class GA4GHSamRecordIterator implements SAMRecordIterator{
   public SAMRecord next() {
     SAMRecord retVal = nextRead;
     seekMatchingRead();
+    updateTiming();
     return retVal;
   }
 
@@ -161,5 +173,30 @@ public class GA4GHSamRecordIterator implements SAMRecordIterator{
   
   public SAMFileHeader getFileHeader() {
     return header;
+  }
+  
+  void startTiming() {
+    processedReads = 0;
+    timer.start(); 
+  }
+  
+  void updateTiming() {
+    processedReads++;
+    if ((processedReads % STATS_DUMP_INTERVAL_READS) == 0) {
+      dumpTiming();
+    }
+  }
+  
+  void stopTiming() {
+    timer.stop();
+  }
+  
+  void dumpTiming() {
+    if (processedReads == 0) {
+      return;
+    }
+    LOG.info("Processed " + processedReads + " reads in " + timer + 
+        ". Speed: " + (processedReads*1000)/timer.elapsedMillis() + " reads/sec");
+    
   }
 }
