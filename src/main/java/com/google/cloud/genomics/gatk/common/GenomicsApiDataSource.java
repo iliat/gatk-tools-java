@@ -152,7 +152,8 @@ public class GenomicsApiDataSource {
       Paginator.Reads searchReads = Paginator.Reads.create(stub);
       SearchReadsRequest readRequest = new SearchReadsRequest()
         .setReadGroupSetIds(Arrays.asList(readsetId))
-        .setReferenceName(sequenceName);
+        .setReferenceName(sequenceName)
+        .setPageSize(2048);
       if (sequenceStart != 0) {
         readRequest.setStart(Long.valueOf(sequenceStart));
       }
