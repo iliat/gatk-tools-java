@@ -32,9 +32,13 @@
     <!-- INIT -->
     <target name="init" depends="write-version-property">
         <path id="classpath">
-            <fileset dir="${lib}">
-                <include name="**/*.jar"/>
-            </fileset>
+        	<fileset dir="${lib}">
+        	  <include name="guava-18.0.jar"/>
+        	</fileset>
+          <fileset dir="${lib}">  
+            <include name="*.jar"/>
+          	<exclude name="guava-18.0.jar"/>
+          </fileset>
         </path>
     </target>
 
@@ -78,6 +82,40 @@
             <fileset dir="lib" includes="*.jar"/>
         </copy>
     </target>
+	
+	 <target name="gatk-tools-java-picard-jar" depends="compile"
+	            description="Builds gatk-tools-java-picard-${gatk-tools-java-version}.jar for inclusion in Picard. Removes unneccessary deps.">
+	        <mkdir dir="${dist}"/>
+	        <delete dir="${jar_tmp}"/>
+	        <mkdir dir="${jar_tmp}"/>
+	        <copy todir="${jar_tmp}">
+	            <fileset dir="${classes}" includes="**/*"/>
+	        </copy>
+	        <unzip dest="${jar_tmp}">
+	            <fileset dir="${lib}">
+	                <include name="*.jar"/>
+	                <exclude name="htsjdk*.jar" />
+	            </fileset>
+	        </unzip>
+	        <delete includeEmptyDirs="true">
+	         <fileset dir="${jar_tmp}">
+	         	 <include name="**/maven/**/*" />
+	         	 <include name="**/com/beust/**/*" />
+	         	 <include name="**/commons-logging/**/*" />
+	         	 <include name="**/org/apache/commons/logging/**/*" />
+	         </fileset>
+	        </delete>
+	        <jar destfile="${dist}/gatk-tools-java-picard-${gatk-tools-java-version}.jar" compress="no">
+	           <fileset dir="${jar_tmp}" includes="**/*.*"/>
+	            <manifest>
+	                <attribute name="Implementation-Title" value="@gatk-tools-java"/>
+	                <attribute name="Implementation-Version" value="${gatk-tools-java-version}(${repository.revision})"/>
+	            </manifest>
+	        </jar>
+	        <copy todir="${dist}">
+	            <fileset dir="lib" includes="*.jar"/>
+	        </copy>
+	    </target>
 
  
 
