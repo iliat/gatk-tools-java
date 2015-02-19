@@ -201,4 +201,9 @@ public class GA4GHSamReader implements SamReader {
   public SAMRecordIterator iterator() {
     return iterator;
   }
+
+  @Override
+  public String getResourceDescription() {
+    return "GA4GH API";
+  }
 }

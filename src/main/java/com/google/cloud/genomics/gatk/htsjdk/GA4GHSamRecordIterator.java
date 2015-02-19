@@ -24,6 +24,7 @@ import htsjdk.samtools.SAMFileHeader.SortOrder;
 import htsjdk.samtools.SAMRecord;
 import htsjdk.samtools.SAMRecordIterator;
 
+import java.util.concurrent.TimeUnit;
 import java.util.Iterator;
 import java.util.logging.Logger;
 
@@ -58,7 +59,7 @@ public class GA4GHSamRecordIterator implements SAMRecordIterator{
     this.dataSource = dataSource;
     this.readSetId = readSetId;
     this.intervals = intervals;
-    this.timer = new Stopwatch();
+    this.timer = Stopwatch.createUnstarted();
     seekMatchingRead();
   }
   
@@ -78,8 +79,7 @@ public class GA4GHSamRecordIterator implements SAMRecordIterator{
   
   /** Re-queries the API for the next interval */
   ReadIteratorResource queryNextInterval() {
-    Stopwatch w = new Stopwatch();
-    w.start();
+    Stopwatch w = Stopwatch.createStarted();
     if (!isAtEnd()) {
       intervalIndex++;
     }
@@ -196,7 +196,7 @@ public class GA4GHSamRecordIterator implements SAMRecordIterator{
       return;
     }
     LOG.info("Processed " + processedReads + " reads in " + timer + 
-        ". Speed: " + (processedReads*1000)/timer.elapsedMillis() + " reads/sec");
+        ". Speed: " + (processedReads*1000)/timer.elapsed(TimeUnit.MILLISECONDS) + " reads/sec");
     
   }
 }
