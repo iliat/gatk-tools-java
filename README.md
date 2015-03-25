@@ -14,20 +14,23 @@ to handle reading of the input data specified via a url and coming from GA4GH AP
 tools with Ga4GH custom reader.
 
 The typical command line would look like:
-java -jar \
--Dsamjdk.custom_reader=https://www.googleapis.com/genomics,<location of gatk-tools-java jar> \
--Dga4gh.client_secrets=<location of client_secrets.json>
-dist/picard.jar <ToolName \
-INPUT=<input url>
+java -jar \  
+-Dsamjdk.custom_reader=https://www.googleapis.com/genomics,<location of gatk-tools-java jar> \  
+-Dga4gh.client_secrets=<location of client_secrets.json>  \   
+dist/picard.jar <ToolName> \  
+INPUT=<input url>  
 
 E.g 
-java -jar \
--Dsamjdk.custom_reader=https://www.googleapis.com/genomics,com.google.cloud.genomics.gatk.htsjdk.GA4GHReaderFactory,gatk-tools-java-1.0.jar \
--Dga4gh.client_secrets=/client_secrets.json \
-dist/picard.jar ViewSam \
-INPUT=https://www.googleapis.com/genomics/v1beta2/readgroupsets/CK256frpGBD44IWHwLP22R4/
-The test read group set used here is the ex1_sorted.bam that can be found in testdata/ folder.
-The data has been uploaded to the cloud project: https://console.developers.google.com/project/genomics-test-data/
+java -jar \  
+-Dsamjdk.custom_reader=https://www.googleapis.com/genomics,com.google.cloud.genomics.gatk.htsjdk.GA4GHReaderFactory,\
+`pwd`/gatk-tools-java-1.0.jar \  
+-Dga4gh.client_secrets=client_secrets.json \  
+dist/picard.jar ViewSam \  
+INPUT=https://www.googleapis.com/genomics/v1beta2/readgroupsets/CK256frpGBD44IWHwLP22R4/  
+The test read group set used here is the ex1_sorted.bam that can be found in testdata/ folder.  
+The data has been uploaded to the cloud project: https://console.developers.google.com/project/genomics-test-data/  
+
+- You can download Picard from: http://broadinstitute.github.io/picard/
 
 - For Picard tools that have not yet been instrumented to work with a custom reader,
 you can use Ga4GHPicardRunner. 
@@ -35,6 +38,6 @@ It is a wrapper around Picard tools that allows for INPUTS into
 Picard tools to be ga4gh:// urls by consuming the data via the API and using pipes 
 to send it to Picard tool. 
 
-Build/Run:
-No Maven setup yet, builds and runs in Eclipse.
-To build with ant: ant gatk-tools-java-jar.
+Build:  
+To build with Maven: mvn bundle:bundle  
+To build with ant: ant gatk-tools-java-jar.  
