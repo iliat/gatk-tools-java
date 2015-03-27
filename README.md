@@ -45,6 +45,7 @@ E.g
   The data has been uploaded to the cloud project: https://console.developers.google.com/project/genomics-test-data/  
 
 To build with Maven: 
+    mvn compile
     mvn bundle:bundle.  
 Note that Maven build produces gatk-tools-java-1.1-SNAPSHOT.jar.
 
