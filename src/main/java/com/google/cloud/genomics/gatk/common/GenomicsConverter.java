@@ -171,21 +171,21 @@ public abstract class GenomicsConverter {
         read.getNextMatePosition().getPosition() == null)) ? 8 : 0; // mate_unmapped
     flags += (read.getAlignment() != null && 
         read.getAlignment().getPosition() != null && 
-        read.getAlignment().getPosition().getReverseStrand()) ? 16 : 0 ; // read_reverse_strand
+        Boolean.TRUE.equals(read.getAlignment().getPosition().getReverseStrand())) ? 16 : 0 ; // read_reverse_strand
     flags += (read.getNextMatePosition() != null &&
-        read.getNextMatePosition().getReverseStrand()) ? 32 : 0;  // mate_reverse_strand
+    	Boolean.TRUE.equals(read.getNextMatePosition().getReverseStrand())) ? 32 : 0;  // mate_reverse_strand
     flags += (read.getReadNumber() != null && 
         read.getReadNumber() == 0) ? 64 : 0; // first_in_pair
     flags += (read.getReadNumber() != null && 
         read.getReadNumber() == 1) ? 128 : 0;  // second_in_pair
     flags += (read.getSecondaryAlignment() != null 
-        && read.getSecondaryAlignment()) ? 256 : 0; // secondary_alignment
+        && Boolean.TRUE.equals(read.getSecondaryAlignment())) ? 256 : 0; // secondary_alignment
     flags += (read.getFailedVendorQualityChecks() != null &&
-        read.getFailedVendorQualityChecks()) ? 512 : 0;// failed_quality_check
+    	Boolean.TRUE.equals(read.getFailedVendorQualityChecks())) ? 512 : 0;// failed_quality_check
     flags += (read.getDuplicateFragment() != null && 
-        read.getDuplicateFragment()) ? 1024 : 0; // duplicate_read
+    	Boolean.TRUE.equals(read.getDuplicateFragment())) ? 1024 : 0; // duplicate_read
     flags += (read.getSupplementaryAlignment() != null &&
-        read.getSupplementaryAlignment()) ? 2048 : 0; //supplementary_alignment
+    	Boolean.TRUE.equals(read.getSupplementaryAlignment())) ? 2048 : 0; //supplementary_alignment
     record.setFlags(flags);
     
     String referenceName = null;
