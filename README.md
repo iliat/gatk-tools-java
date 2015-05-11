@@ -42,7 +42,9 @@ E.g
     ../picard/dist/picard.jar ViewSam \  
     INPUT=https://www.googleapis.com/genomics/v1beta2/readgroupsets/CK256frpGBD44IWHwLP22R4/  
   The test read group set used here is the ex1_sorted.bam that can be found in testdata/ folder.  
-  The data has been uploaded to the cloud project: https://console.developers.google.com/project/genomics-test-data/  
+  The data has been uploaded to the cloud project: https://console.developers.google.com/storage/browser/gatk-tools-java/.
+  
+  The dataset id is: 15448427866823121459 and the read group set id is CK256frpGBD44IWHwLP22R4.
 
 To build with Maven: 
     mvn compile
