@@ -7,7 +7,7 @@
   <name>Google Genomics Utils for GATK</name>
   <description>Common Java files for Google Genomics integrations with GATK/Picard/HTSJDK</description>
   <url>https://github.com/googlegenomics/gatk-tools-java</url>
-  <version>1.1-SNAPSHOT</version>
+  <version>1.1</version>
 
   <organization>
     <name>Google</name>
@@ -42,7 +42,7 @@
     <connection>scm:git:git@github.com:googlegenomics/gatk-tools-java.git</connection>
     <developerConnection>scm:git:git@github.com:googlegenomics/gatk-tools-java.git</developerConnection>
     <url>git@github.com:googlegenomics/gatk-tools-java.git</url>
-    <tag>HEAD</tag>
+    <tag>gatk-tools-java-1.1</tag>
   </scm>
 
   <distributionManagement>
