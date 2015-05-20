@@ -1,5 +1,5 @@
 
-gatk-tools-java
+gatk-tools-java [![Build Status](https://img.shields.io/travis/googlegenomics/gatk-tools-java.svg?style=flat)](https://travis-ci.org/googlegenomics/gatk-tools-java) [![Coverage Status](https://img.shields.io/coveralls/googlegenomics/gatk-tools-java.svg?style=flat)](https://coveralls.io/r/googlegenomics/gatk-tools-java)
 ===============
 Tools for using Picard and GATK with Genomics API.
 
