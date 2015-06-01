@@ -9,11 +9,11 @@
 #          /picard
 #          /client_secrets.json
 # If your setup is different, please modify paths below.
-GATK_TOOLS_JAVA_JAR=$(readlink -f ../../../dist/gatk-tools-java-1.0.jar)
-CLIENT_SECRETS=$(readlink -f ../../../../client_secrets.json)
-PICARD_JAR=$(readlink -f ../../../../picard/dist/picard.jar)
+GATK_TOOLS_JAVA_JAR=$(readlink -f `dirname $0`/../../../dist/gatk-tools-java-1.0.jar)
+CLIENT_SECRETS=$(readlink -f `dirname $0`/../../../../client_secrets.json)
+PICARD_JAR=$(readlink -f `dirname $0`/../../../../picard/dist/picard.jar)
 
-echo Running Picard form $PICARD_JAR
+echo Running Picard from $PICARD_JAR
 echo Using gatk-tools-java from $GATK_TOOLS_JAVA_JAR
 echo Using client_secrets form $CLIENT_SECRETS
 
