@@ -19,6 +19,7 @@ import com.google.api.services.genomics.model.Read;
 import com.google.api.services.genomics.model.ReadGroupSet;
 import com.google.api.services.genomics.model.Reference;
 
+import com.google.cloud.genomics.utils.ReadUtils;
 import htsjdk.samtools.SAMRecordCoordinateComparator;
 import htsjdk.samtools.SAMFileHeader;
 import htsjdk.samtools.SAMRecord;
@@ -33,7 +34,7 @@ import java.util.logging.Logger;
 /**
  * Provides reads data in the from of SAMRecords and SAMFileHeader, by wrapping
  * an existing source of Read and HeaderSection data and doing the conversion using
- * GenomicsConverter.
+ * ReadUtils.
  */
 public class ReadIteratorResource {
   private static final Logger LOG = Logger.getLogger(ReadIteratorResource.class.getName());
@@ -84,8 +85,8 @@ public class ReadIteratorResource {
   
   public SAMFileHeader getSAMFileHeader() {
     if (cachedSAMFileHeader == null) {
-      cachedSAMFileHeader = 
-          GenomicsConverter.makeSAMFileHeader(getReadGroupSet(), getReferences());
+      cachedSAMFileHeader =
+              ReadUtils.makeSAMFileHeader(getReadGroupSet(), getReferences());
     }
     return cachedSAMFileHeader;
   }
@@ -172,8 +173,8 @@ public class ReadIteratorResource {
             if (nextRead == null) {
               return null;
             }
-            
-            SAMRecord record = GenomicsConverter.makeSAMRecord(nextRead, 
+
+            SAMRecord record = ReadUtils.makeSAMRecord(nextRead,
                 header);
             
             // See https://github.com/ga4gh/schemas/issues/224

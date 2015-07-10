@@ -149,7 +149,7 @@ public class GenomicsApiDataSource {
       if (sequenceName.isEmpty()) {
         unmappedReads = getUnmappedMatesOfMappedReads(readsetId); 
       }
-      Paginator.Reads searchReads = Paginator.Reads.create(stub);
+      Paginator.Reads searchReads = Paginator.Reads.create(stub, Paginator.ShardBoundary.OVERLAPS);
       SearchReadsRequest readRequest = new SearchReadsRequest()
         .setReadGroupSetIds(Arrays.asList(readsetId))
         .setReferenceName(sequenceName)
@@ -219,7 +219,7 @@ public class GenomicsApiDataSource {
   private UnmappedReads getUnmappedMatesOfMappedReads(String readsetId) 
       throws GeneralSecurityException, IOException {
     LOG.info("Collecting unmapped mates of mapped reads for injection");
-    final Paginator.Reads searchUnmappedReads = Paginator.Reads.create(getApi());
+    final Paginator.Reads searchUnmappedReads = Paginator.Reads.create(getApi(), Paginator.ShardBoundary.OVERLAPS);
     final SearchReadsRequest unmappedReadRequest = new SearchReadsRequest()
       .setReadGroupSetIds(Arrays.asList(readsetId))
       .setReferenceName("*");
