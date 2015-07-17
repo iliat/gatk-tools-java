@@ -13,7 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package com.google.cloud.genomics.gatk.common.api;
+package com.google.cloud.genomics.gatk.common.rest;
 
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
 import com.google.api.client.googleapis.json.GoogleJsonResponseException;
@@ -42,7 +42,7 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Manages Genomics Api initialization and provides Read iterator based
+ * Manages Genomics REST Api initialization and provides Read iterator based
  * resources via Reads.search API invocations. 
  */
 public class GenomicsDataSource 

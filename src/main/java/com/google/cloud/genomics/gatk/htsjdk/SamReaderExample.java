@@ -35,7 +35,9 @@ import java.util.concurrent.TimeUnit;
  * To run this we need to specify the custom reader factory for HTSJDK and set
  * client_secrets file path for Genomics API:
  * -Dsamjdk.custom_reader=https://www.googleapis.com/genomics,com.google.cloud.genomics.gatk.htsjdk.GA4GHReaderFactory 
- * -Dga4gh.client_secrets=<path to client_secrets.json>
+ * -Dga4gh.client_secrets=<path to client_secrets.json>.
+ * 
+ * Optionally specify -Dga4gh.using_grpc=true, to use GRPC based Api access.
  */
 public class SamReaderExample {
   static String GA4GH_URL = 

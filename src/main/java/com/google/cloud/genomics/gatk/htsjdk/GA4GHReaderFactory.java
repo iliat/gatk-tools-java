@@ -15,7 +15,7 @@ limitations under the License.
 */
 package com.google.cloud.genomics.gatk.htsjdk;
 
-import com.google.cloud.genomics.gatk.common.api.GenomicsDataSourceFactoryApi;
+import com.google.cloud.genomics.gatk.common.rest.GenomicsDataSourceFactoryRest;
 import com.google.cloud.genomics.gatk.common.grpc.GenomicsDataSourceFactoryGrpc;
 
 import htsjdk.samtools.CustomReaderFactory;
@@ -46,7 +46,7 @@ public class GA4GHReaderFactory implements CustomReaderFactory.ICustomReaderFact
             com.google.api.services.genomics.model.Read,
             com.google.api.services.genomics.model.ReadGroupSet, 
             com.google.api.services.genomics.model.Reference>(url,
-                new GenomicsDataSourceFactoryApi());
+                new GenomicsDataSourceFactoryRest());
       }
     } catch (RuntimeException rex) {
       throw rex;

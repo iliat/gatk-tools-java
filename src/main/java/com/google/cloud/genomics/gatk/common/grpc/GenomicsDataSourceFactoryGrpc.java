@@ -22,7 +22,7 @@ import com.google.genomics.v1.ReadGroupSet;
 import com.google.genomics.v1.Reference;
 
 /**
- * GRPC based implementation.
+ * Genomics GRPC Api based implementation.
  */
 public class GenomicsDataSourceFactoryGrpc
   extends GenomicsDataSourceFactory<Read, ReadGroupSet, Reference> {

@@ -13,7 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package com.google.cloud.genomics.gatk.common.api;
+package com.google.cloud.genomics.gatk.common.rest;
 
 import com.google.api.services.genomics.model.Read;
 import com.google.api.services.genomics.model.ReadGroupSet;
@@ -24,7 +24,7 @@ import com.google.cloud.genomics.gatk.common.UnmappedReads;
 import java.util.List;
 
 /**
- * Genomics Api based implementation.
+ * Genomics REST Api based implementation.
  */
 public class ReadIteratorResource extends ReadIteratorResourceBase<Read, ReadGroupSet, Reference> {
   public ReadIteratorResource(ReadGroupSet readGroupSet, List<Reference> references,

@@ -49,7 +49,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * GRPC based implementation.
+ * Genomics GRPC Api based implementation.
  */
 public class GenomicsConverter 
   extends GenomicsConverterBase<Read, ReadGroupSet, Reference> {

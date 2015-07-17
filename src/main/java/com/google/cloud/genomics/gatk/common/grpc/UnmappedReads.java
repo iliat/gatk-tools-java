@@ -11,7 +11,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * GRPC based implementation.
+ * Genomics GRPC Api based implementation.
  */
 public class UnmappedReads extends UnmappedReadsBase<Read> { 
   @Override

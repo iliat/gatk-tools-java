@@ -19,7 +19,7 @@
 // utils-java can not yet be moved to depend on HTSJDK due to pending
 // work (https://github.com/samtools/htsjdk/pull/55).
 // Once this completes and utils-java is updated this file can be removed. 
-package com.google.cloud.genomics.gatk.common.api;
+package com.google.cloud.genomics.gatk.common.rest;
 
 import com.google.api.services.genomics.model.CigarUnit;
 import com.google.api.services.genomics.model.Read;
@@ -47,7 +47,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Genomics Api based implementation.
+ * Genomics REST Api based implementation.
  */
 public class GenomicsConverter 
   extends GenomicsConverterBase<Read, ReadGroupSet, Reference> {

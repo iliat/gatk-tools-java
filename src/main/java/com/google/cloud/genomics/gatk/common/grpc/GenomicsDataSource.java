@@ -63,7 +63,7 @@ import java.util.Set;
 import java.util.concurrent.Executors;
 
 /**
- * Manages Genomics Api initialization and provides Read iterator based
+ * Manages Genomics GRPC Api initialization and provides Read iterator based
  * resources via Reads.search API invocations. 
  */
 public class GenomicsDataSource 

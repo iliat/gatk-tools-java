@@ -24,7 +24,7 @@ import com.google.genomics.v1.Reference;
 import java.util.List;
 
 /**
- * GRPC based implementation.
+ * Genomics GRPC Api based implementation.
  */
 public class ReadIteratorResource extends ReadIteratorResourceBase<Read, ReadGroupSet, Reference> {
   public ReadIteratorResource(ReadGroupSet readGroupSet, List<Reference> references,

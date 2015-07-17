@@ -1,4 +1,4 @@
-package com.google.cloud.genomics.gatk.common.api;
+package com.google.cloud.genomics.gatk.common.rest;
 
 import com.google.api.services.genomics.model.Position;
 import com.google.api.services.genomics.model.Read;

@@ -17,7 +17,7 @@ package com.google.cloud.genomics.gatk.picard.runner;
 
 import com.google.cloud.genomics.gatk.common.GA4GHUrl;
 import com.google.cloud.genomics.gatk.common.GenomicsDataSourceFactory.Settings;
-import com.google.cloud.genomics.gatk.common.api.GenomicsDataSourceFactoryApi;
+import com.google.cloud.genomics.gatk.common.rest.GenomicsDataSourceFactoryRest;
 import com.google.cloud.genomics.gatk.common.grpc.GenomicsDataSourceFactoryGrpc;
 
 import com.beust.jcommander.JCommander;
@@ -100,7 +100,7 @@ public class GA4GHPicardRunner {
   private Process process;
   
   /** Factory for creating Genomics Api based data sources */
-  private GenomicsDataSourceFactoryApi factoryApi = new GenomicsDataSourceFactoryApi();
+  private GenomicsDataSourceFactoryRest factoryRest = new GenomicsDataSourceFactoryRest();
   private GenomicsDataSourceFactoryGrpc factoryGrpc = new GenomicsDataSourceFactoryGrpc();
   
   /**
@@ -223,13 +223,13 @@ public class GA4GHPicardRunner {
                 .get(url.getRootUrl())
                 .getReads(url));
     } else {
-      factoryApi.configure(url.getRootUrl(), 
+      factoryRest.configure(url.getRootUrl(), 
           new Settings(clientSecretsFilename, apiKey, noLocalServer));
         pump = new ReadIteratorToSAMFilePump<
             com.google.api.services.genomics.model.Read,
             com.google.api.services.genomics.model.ReadGroupSet, 
             com.google.api.services.genomics.model.Reference>(
-                factoryApi
+                factoryRest
                   .get(url.getRootUrl())
                   .getReads(url)); 
     }
