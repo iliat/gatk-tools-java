@@ -17,10 +17,8 @@ package com.google.cloud.genomics.gatk.common.grpc;
 
 import com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets;
 import com.google.api.client.googleapis.util.Utils;
-import com.google.auth.oauth2.GoogleCredentials;
 import com.google.auth.oauth2.UserCredentials;
 import com.google.cloud.genomics.gatk.common.GenomicsDataSourceBase;
-import com.google.cloud.genomics.grpc.Channels;
 import com.google.cloud.genomics.utils.GenomicsFactory.OfflineAuth;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -55,7 +53,6 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;

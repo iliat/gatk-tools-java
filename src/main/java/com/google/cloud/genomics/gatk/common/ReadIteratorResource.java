@@ -23,7 +23,7 @@ import java.util.List;
 /**
  * Provides reads data in the from of SAMRecords and SAMFileHeader, by wrapping
  * an existing source of Read and HeaderSection data and doing the conversion using
- * GenomicsConverter.
+ * ReadUtils.
  */
 public interface ReadIteratorResource<Read, ReadGroupSet, Reference> {
   public ReadGroupSet getReadGroupSet();
@@ -37,7 +37,7 @@ public interface ReadIteratorResource<Read, ReadGroupSet, Reference> {
   public Iterable<Read> getIterable();
   
   public void setIterable(Iterable<Read> iterable);
-  
+
   public SAMFileHeader getSAMFileHeader();
   
   public Iterable<SAMRecord> getSAMRecordIterable();
