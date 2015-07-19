@@ -26,10 +26,10 @@ import java.io.OutputStream;
 /**
  * Writes contents of the ReadIteratorResource into the stream as a SAM file.
  */
-public class ReadIteratorToSAMFilePump implements SAMFilePump {
-  private ReadIteratorResource readIterator;
+public class ReadIteratorToSAMFilePump<Read, ReadGroupSet, Reference> implements SAMFilePump {
+  private ReadIteratorResource<Read, ReadGroupSet, Reference> readIterator;
    
-  public ReadIteratorToSAMFilePump(ReadIteratorResource readIterator) {
+  public ReadIteratorToSAMFilePump(ReadIteratorResource<Read, ReadGroupSet, Reference> readIterator) {
     this.readIterator = readIterator;
   }
   
