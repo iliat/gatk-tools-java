@@ -27,16 +27,8 @@ import htsjdk.samtools.SAMRecord;
 import java.util.List;
 
 /**
- * A utility class for converting between genomics data representations by the Cloud Genomics API
- * and that of Picard Tools
- * 
- * Notes: Conversion is not perfect, information WILL be lost!
- *        HTSJDK formats get very mad about passing nulls, so lots of null checks. Genomics API 
- *        classes however are fine with nulls so no checks need to be done.
- * 
- * Currently supported conversions:
- *      Read <-> SAMRecord
- *      HeaderSection <-> SAMFileHeader
+ * Converts between genomics data representations by the Cloud Genomics API
+ * and that of Picard Tools.
  */
 public interface GenomicsConverter<Read, ReadGroupSet, Reference> {
   public SAMRecord makeSAMRecord(Read read, SAMFileHeader header);
