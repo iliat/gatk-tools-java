@@ -183,7 +183,7 @@ public class GenomicsDataSource
   private Map<String, Reference> getReferences(ReadGroupSet readGroupSet) 
       throws IOException, GeneralSecurityException {
     Set<String> referenceSetIds = Sets.newHashSet();
-    if (readGroupSet.getReferenceSetId() != null) {
+    if (readGroupSet.getReferenceSetId() != null && !readGroupSet.getReferenceSetId().isEmpty()) {
       LOG.info("Found reference set from read group set " + 
           readGroupSet.getReferenceSetId());
       referenceSetIds.add(readGroupSet.getReferenceSetId());
@@ -191,7 +191,7 @@ public class GenomicsDataSource
     if (readGroupSet.getReadGroupsCount() > 0) {
       LOG.info("Found read groups");
       for (ReadGroup readGroup : readGroupSet.getReadGroupsList()) {
-        if (readGroup.getReferenceSetId() != null) {
+        if (readGroup.getReferenceSetId() != null && !readGroup.getReferenceSetId().isEmpty()) {
           LOG.info("Found reference set from read group: " + 
               readGroup.getReferenceSetId());
           referenceSetIds.add(readGroup.getReferenceSetId());
@@ -217,7 +217,7 @@ public class GenomicsDataSource
         GetReferenceRequest getReferenceRequest = GetReferenceRequest
             .newBuilder().setReferenceId(referenceId).build();
         Reference reference = referenceSetStub.getReference(getReferenceRequest);
-        if (reference.getName() != null) {
+        if (reference.getName() != null && !reference.getName().isEmpty()) {
           references.put(reference.getName(), reference);
           LOG.fine("Adding reference  " + reference.getName());
         }
