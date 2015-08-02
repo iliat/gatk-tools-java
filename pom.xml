@@ -216,6 +216,23 @@
               </execution>
             </executions>
           </plugin>
+
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-javadoc-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>attach-javadocs</id>
+                <goals>
+                  <goal>jar</goal>
+                </goals>
+            <configuration>
+                <additionalparam>-Xdoclint:none</additionalparam>
+            </configuration>
+              </execution>
+            </executions>
+          </plugin>
+
         </plugins>
       </build>
     </profile>
@@ -238,6 +255,7 @@
         <configuration>
           <autoVersionSubmodules>true</autoVersionSubmodules>
           <releaseProfiles>release</releaseProfiles>
+          <useReleaseProfile>false</useReleaseProfile>
           <goals>deploy</goals>
         </configuration>
       </plugin>
@@ -322,19 +340,11 @@
             </execution>
           </executions>
         </plugin>
-       
-        <plugin>
-          <groupId>org.apache.maven.plugins</groupId>
-          <artifactId>maven-javadoc-plugin</artifactId>
-          <configuration>
-            <additionalparam>-Xdoclint:none</additionalparam>
-          </configuration>
-        </plugin>
     </plugins>
   </build>
 
   <properties> 
-  <jetty.version>6.1.26</jetty.version>
+    <jetty.version>6.1.26</jetty.version>
     <jackson.version>2.4.2</jackson.version>
     <junit.version>4.11</junit.version>
     <google.api.version>1.19.0</google.api.version>
