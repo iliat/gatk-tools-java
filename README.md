@@ -6,56 +6,53 @@ Tools for using Picard and GATK with Genomics API.
 - Common classes for getting Reads from GA4GH Genomics API and
 exposing them as SAMRecord "Iterable" resource.
 
-- Implementation of a custom reader that can be plugged into Picard tools
-to handle reading of the input data specified via a url and coming from GA4GH API.
 
-- A set of shell scripts (src/main/scripts) that demonstrate how to run Picard
+- Implementation of a custom reader that can be plugged into [Picard](http://broadinstitute.github.io/picard/) tools
+to handle reading of the input data specified via a url and coming from GA4GH API.
+Works both with REST and GRPC (faster) implementation of [Google Genomics API](https://cloud.google.com/genomics/v1beta2/reference/).
+
+
+- A set of [shell scripts](https://github.com/googlegenomics/gatk-tools-java/tree/master/src/main/scripts) that demonstrate how to run Picard
 tools with Ga4GH custom reader.
 
-- Requires htsjdk version 1.128 and greater and Picard latest version (past this commit https://github.com/iliat/picard/commit/ebe987313d799d58b0673351b95d3ca91fed82bf).
 
-- You can download Picard from: http://broadinstitute.github.io/picard/ and 
-build it according to the instructions.
+- Requires [HTSJDK](https://github.com/samtools/htsjdk) v.1.128 and [Picard](https://github.com/broadinstitute/picard) v.1.133 and later.
 
-Build:  
-To build with ant: 
-    ant gatk-tools-java-jar.
+To build this package: ```mvn compile package```
     
-Note that examples below assume you have built with ant,
-it produces dist/gatk-tools-java-1.0.jar
-The following examples assume you have picard folder side by side with gatk-tools-java.
-  
-The typical command line would look like:
+This command produces 3 files:
+##### gatk-tools-java-[ver]-SNAPSHOT.jar
 
-    java -jar \  
-    -Dsamjdk.custom_reader=https://www.googleapis.com/genomics,<location of gatk-tools-java jar> \  
-    -Dga4gh.client_secrets=<location of client_secrets.json>  \   
-    dist/picard.jar <ToolName> \  
-    INPUT=<input url>  
+A small JAR with just the classes from this package, needs to be run with mvn run,
+see [example.sh](https://github.com/googlegenomics/gatk-tools-java/blob/master/src/main/scripts/example.sh) script that demonstrates how to use classes in this package to get SAMRecords from GA4GH API.
+You can run the example like this:
 
-E.g 
+```gatk-tools-java$ src/main/scripts/example.sh```
 
-    java -jar \
-    -Dsamjdk.custom_reader=https://www.googleapis.com/genomics,com.google.cloud.genomics.gatk.htsjdk.GA4GHReaderFactory,\
-    `pwd`/dist/gatk-tools-java-1.0.jar \  
-    -Dga4gh.client_secrets=client_secrets.json \  
-    ../picard/dist/picard.jar ViewSam \  
-    INPUT=https://www.googleapis.com/genomics/v1beta2/readgroupsets/CK256frpGBD44IWHwLP22R4/  
-  The test read group set used here is the ex1_sorted.bam that can be found in testdata/ folder.  
-  The data has been uploaded to the cloud project: https://console.developers.google.com/storage/browser/gatk-tools-java/.
-  
-  The dataset id is: 15448427866823121459 and the read group set id is CK256frpGBD44IWHwLP22R4.
+##### gatk-tools-java-[ver]-SNAPSHOT-jar-with-dependencies.jar
+A large jar with ALL dependencies in it.
+This file is suitable for injecting a custom reader into a regularly built Picard
+distribution, without recompiling it.
 
-To build with Maven: 
-    mvn compile
-    mvn bundle:bundle.  
-Note that Maven build produces gatk-tools-java-1.1-SNAPSHOT.jar.
+You will need to download and build Picard tools, see insrtuctions [here](http://broadinstitute.github.io/picard/).
 
-- For Picard tools that have not yet been instrumented to work with a custom reader,
-you can use Ga4GHPicardRunner. 
-It is a wrapper around Picard tools that allows for INPUTS into 
-Picard tools to be ga4gh:// urls by consuming the data via the API and using pipes 
-to send it to Picard tool. 
+See [view_sam_file.sh](https://github.com/googlegenomics/gatk-tools-java/blob/master/src/main/scripts/view_sam_file.sh) and [run_picard.sh](https://github.com/googlegenomics/gatk-tools-java/blob/master/src/main/scripts/run_picard.sh) scripts for examples of usage.
+You can run the example like this:
+
+```gatk-tools-java$ src/main/scripts/view_sam_file.sh```
 
 
+##### gatk-tools-java-[ver]-SNAPSHOT-minimized.jar
+JAR with dependencies suitable for compiling together with Picard tools.
+See [instructions on building Picard with gatk-tools-java](https://github.com/broadinstitute/picard/blob/master/README.md).
 
+With Picard tools built this way you can specify GA4GH urls as INPUT parameters
+and do not have to use -Dsamjdk.custom_reader.
+
+You should be able to run Picard tool like so:
+
+```
+picard$ java -jar dist/picard.jar ViewSam \
+INPUT=https://www.googleapis.com/genomics/v1beta2/readgroupsets/CK256frpGBD44IWHwLP22R4/ \
+GA4GH_CLIENT_SECRETS=../client_secrets.json
+```

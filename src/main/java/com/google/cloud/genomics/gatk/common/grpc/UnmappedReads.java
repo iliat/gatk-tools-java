@@ -20,20 +20,21 @@ public class UnmappedReads extends UnmappedReadsBase<Read> {
     if (!paired) {
       return false;
     }
-    final boolean unmapped = (read.getAlignment() == null || 
-        read.getAlignment().getPosition() == null || 
-        read.getAlignment().getPosition().getPosition() == 0);
+    final boolean unmapped = 
+        (!read.hasAlignment() || read.getAlignment() == null || 
+         !read.getAlignment().hasPosition() || read.getAlignment().getPosition() == null);
     if (!unmapped) {
       return false;
     }
-    final Position matePosition = read.getNextMatePosition();
+    final Position matePosition = read.hasNextMatePosition() ? read.getNextMatePosition() : null;
     if  (matePosition == null) {
       return false;
     }
-    if (read.getFragmentName() == null) {
+    if (read.getFragmentName() == null || read.getFragmentName().isEmpty()) {
       return false;
     }
-    if (matePosition.getReferenceName() != null && matePosition.getPosition() != 0) {
+    if (matePosition.getReferenceName() != null && 
+        !matePosition.getReferenceName().isEmpty()) {
       return true;
     }
     return false;
@@ -42,8 +43,10 @@ public class UnmappedReads extends UnmappedReadsBase<Read> {
   @Override
   public boolean isMappedMateOfUnmappedRead(Read read) {
     return read.getNumberReads() > 0 && 
-        (read.getNextMatePosition() == null || 
-         read.getNextMatePosition().getPosition() == 0);
+        (!read.hasNextMatePosition() ||
+         read.getNextMatePosition() == null || 
+         read.getNextMatePosition().getReferenceName() == null ||
+         read.getNextMatePosition().getReferenceName().isEmpty());
   }
   
   /**
@@ -85,12 +88,11 @@ public class UnmappedReads extends UnmappedReadsBase<Read> {
   @Override
   public ArrayList<Read> getUnmappedMates(Read read) {
     if (read.getNumberReads() < 2 ||
-        (read.getNextMatePosition() != null && 
-        read.getNextMatePosition().getPosition() != 0) ||
-        read.getAlignment() == null ||
-        read.getAlignment().getPosition() == null ||
-        read.getAlignment().getPosition().getReferenceName() == null ||
-        read.getFragmentName() == null) {
+        (read.hasNextMatePosition() && read.getNextMatePosition() != null) ||
+        !read.hasAlignment() || read.getAlignment() == null ||
+        !read.getAlignment().hasPosition() || read.getAlignment().getPosition() == null ||
+        read.getAlignment().getPosition().getReferenceName() == null || read.getAlignment().getPosition().getReferenceName().isEmpty() ||
+        read.getFragmentName() == null || read.getFragmentName().isEmpty()) {
       return null;
     }
     final String reference = read.getAlignment().getPosition().getReferenceName();

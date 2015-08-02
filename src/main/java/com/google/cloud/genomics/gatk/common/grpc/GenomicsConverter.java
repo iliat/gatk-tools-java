@@ -40,7 +40,11 @@ public class GenomicsConverter
   
   @Override
   public SAMRecord makeSAMRecord(Read read, SAMFileHeader header) {
-    return ReadUtils.makeSAMRecord(read, header);
+    SAMRecord record = ReadUtils.makeSAMRecord(read, header);
+    if (record.getReadName() == null) {
+      record.setReadName("");
+    }
+    return record;
   }
 
   @Override

@@ -42,7 +42,7 @@ import java.util.concurrent.TimeUnit;
 public class SamReaderExample {
   static String GA4GH_URL = 
       "https://www.googleapis.com/genomics/v1beta2/readgroupsets/CMvnhpKTFhD3he72j4KZuyc/chr17/41196311-42677499";
-  
+      //"https://www.googleapis.com/genomics/v1beta2/readgroupsets/CK256frpGBD44IWHwLP22R4/";
   public static void main(String[] args) {  
     try {
       SamReaderFactory factory =  SamReaderFactory.makeDefault();

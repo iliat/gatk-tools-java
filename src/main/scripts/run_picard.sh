@@ -9,7 +9,7 @@
 #          /picard
 #          /client_secrets.json
 # If your setup is different, please modify paths below.
-GATK_TOOLS_JAVA_JAR=$(readlink -f `dirname $0`/../../../target/gatk-tools-java*.jar)
+GATK_TOOLS_JAVA_JAR=$(readlink -f `dirname $0`/../../../target/gatk-tools-java-*-SNAPSHOT-jar-with-dependencies.jar)
 CLIENT_SECRETS=$(readlink -f `dirname $0`/../../../../client_secrets.json)
 PICARD_JAR=$(readlink -f `dirname $0`/../../../../picard/dist/picard.jar)
 
