@@ -15,6 +15,9 @@ limitations under the License.
 */
 package com.google.cloud.genomics.gatk.htsjdk;
 
+import com.google.cloud.genomics.gatk.common.rest.GenomicsDataSourceFactoryRest;
+import com.google.cloud.genomics.gatk.common.grpc.GenomicsDataSourceFactoryGrpc;
+
 import htsjdk.samtools.CustomReaderFactory;
 import htsjdk.samtools.SamReader;
 
@@ -30,7 +33,21 @@ public class GA4GHReaderFactory implements CustomReaderFactory.ICustomReaderFact
   @Override
   public SamReader open(URL url) {
     try {
-      return new GA4GHSamReader(url);
+      if (usingGrpc()) {
+        LOG.info("Creating SamReader using GRPC inteface");
+        return new GA4GHSamReader<
+            com.google.genomics.v1.Read,
+            com.google.genomics.v1.ReadGroupSet, 
+            com.google.genomics.v1.Reference>(url,
+                new GenomicsDataSourceFactoryGrpc());
+      } else {
+        LOG.info("Creating SamReader using Genomics API inteface");
+        return new GA4GHSamReader<
+            com.google.api.services.genomics.model.Read,
+            com.google.api.services.genomics.model.ReadGroupSet, 
+            com.google.api.services.genomics.model.Reference>(url,
+                new GenomicsDataSourceFactoryRest());
+      }
     } catch (RuntimeException rex) {
       throw rex;
     } catch (Exception ex) {
@@ -38,5 +55,8 @@ public class GA4GHReaderFactory implements CustomReaderFactory.ICustomReaderFact
       return null;
     }
   }
-
+    
+  private boolean usingGrpc() {
+    return System.getProperty("ga4gh.using_grpc", "").equals("true");
+  }
 }

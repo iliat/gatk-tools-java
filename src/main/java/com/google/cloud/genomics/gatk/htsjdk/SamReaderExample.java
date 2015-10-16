@@ -15,13 +15,17 @@ limitations under the License.
 */
 package com.google.cloud.genomics.gatk.htsjdk;
 
+import com.google.common.base.Stopwatch;
+
 import htsjdk.samtools.SAMRecord;
 import htsjdk.samtools.SamInputResource;
 import htsjdk.samtools.SamReader;
 import htsjdk.samtools.SamReaderFactory;
 
+import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Example of HTSJDK SamReader and SamReaderFactory class usage.
@@ -31,12 +35,14 @@ import java.net.URL;
  * To run this we need to specify the custom reader factory for HTSJDK and set
  * client_secrets file path for Genomics API:
  * -Dsamjdk.custom_reader=https://www.googleapis.com/genomics,com.google.cloud.genomics.gatk.htsjdk.GA4GHReaderFactory 
- * -Dga4gh.client_secrets=<path to client_secrets.json>
+ * -Dga4gh.client_secrets=<path to client_secrets.json>.
+ * 
+ * Optionally specify -Dga4gh.using_grpc=true, to use GRPC based Api access.
  */
 public class SamReaderExample {
   static String GA4GH_URL = 
-      "https://www.googleapis.com/genomics/v1beta2/readgroupsets/CLqN8Z3sDRCwgrmdkOXjn_sB/*/";
-  
+      "https://www.googleapis.com/genomics/v1beta2/readgroupsets/CMvnhpKTFhD3he72j4KZuyc/chr17/41196311-42677499";
+      //"https://www.googleapis.com/genomics/v1beta2/readgroupsets/CK256frpGBD44IWHwLP22R4/";
   public static void main(String[] args) {  
     try {
       SamReaderFactory factory =  SamReaderFactory.makeDefault();
@@ -46,11 +52,22 @@ public class SamReaderExample {
       // For API access we use SamInputResource constructed from a URL:
       SamReader reader = factory.open(SamInputResource.of(new URL(GA4GH_URL)));
       
-      for (final SAMRecord samRecord : reader) {
-        System.err.println(samRecord);
+      Stopwatch timer = Stopwatch.createStarted();
+      int processedReads = 0;
+      for (@SuppressWarnings("unused") final SAMRecord samRecord : reader) {
+        processedReads++;
       }
-    
+      final long elapsed = timer.elapsed(TimeUnit.MILLISECONDS);
+      if (processedReads > 0 && elapsed > 0) {
+        System.out.println("Processed " + processedReads + " reads in " + timer + 
+            ". Speed: " + (processedReads*1000)/elapsed + " reads/sec");
+      } else {
+        System.out.println("Nothing processed or not enough reads for timing stats.");
+      }
+      reader.close();
     } catch (MalformedURLException e) {
+      e.printStackTrace();
+    } catch (IOException e) {
       e.printStackTrace();
     }
   }

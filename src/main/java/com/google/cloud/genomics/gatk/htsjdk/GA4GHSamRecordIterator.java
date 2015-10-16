@@ -15,7 +15,7 @@ limitations under the License.
 */
 package com.google.cloud.genomics.gatk.htsjdk;
 
-import com.google.cloud.genomics.gatk.common.GenomicsApiDataSource;
+import com.google.cloud.genomics.gatk.common.GenomicsDataSource;
 import com.google.cloud.genomics.gatk.common.ReadIteratorResource;
 import com.google.common.base.Stopwatch;
 
@@ -37,13 +37,14 @@ import java.util.logging.Logger;
  * supports contained and start-at queries, this class filters reads
  * returned from the API to make sure they conform to the requested intervals.
  */
-public class GA4GHSamRecordIterator implements SAMRecordIterator{
+public class GA4GHSamRecordIterator<Read, ReadGroupSet, Reference> 
+    implements SAMRecordIterator{
   private static final Logger LOG = Logger.getLogger(GA4GHSamRecordIterator.class.getName());
 
   private static final long STATS_DUMP_INTERVAL_READS = 100000;
   
   Iterator<SAMRecord> iterator;
-  GenomicsApiDataSource dataSource;
+  GenomicsDataSource<Read, ReadGroupSet, Reference> dataSource;
   GA4GHQueryInterval[] intervals;
   String readSetId;
   int intervalIndex = -1;
@@ -53,7 +54,7 @@ public class GA4GHSamRecordIterator implements SAMRecordIterator{
   long processedReads;
   Stopwatch timer;
   
-  public GA4GHSamRecordIterator(GenomicsApiDataSource dataSource,
+  public GA4GHSamRecordIterator(GenomicsDataSource<Read, ReadGroupSet, Reference> dataSource,
       String readSetId,
       GA4GHQueryInterval[] intervals) {
     this.dataSource = dataSource;
@@ -78,7 +79,7 @@ public class GA4GHSamRecordIterator implements SAMRecordIterator{
   }
   
   /** Re-queries the API for the next interval */
-  ReadIteratorResource queryNextInterval() {
+  ReadIteratorResource<Read, ReadGroupSet, Reference> queryNextInterval() {
     Stopwatch w = Stopwatch.createStarted();
     if (!isAtEnd()) {
       intervalIndex++;
@@ -86,16 +87,17 @@ public class GA4GHSamRecordIterator implements SAMRecordIterator{
     if (isAtEnd()) {
       return null;
     }
-    ReadIteratorResource result =  queryForInterval(currentInterval());
+    ReadIteratorResource<Read, ReadGroupSet, Reference> result =  
+        queryForInterval(currentInterval());
     LOG.info("Interval query took: " + w);
     startTiming();
     return result;
   }
   
   /** Queries the API for an interval and returns the iterator resource, or null if failed */
-  ReadIteratorResource queryForInterval(GA4GHQueryInterval interval) {
+  ReadIteratorResource<Read, ReadGroupSet, Reference> queryForInterval(GA4GHQueryInterval interval) {
     try {
-      return dataSource.getReadsFromGenomicsApi(readSetId, interval.getSequence(),
+      return dataSource.getReads(readSetId, interval.getSequence(),
           interval.getStart(), interval.getEnd());
     } catch (Exception ex) {
       LOG.warning("Error getting data for interval " + ex.toString());
@@ -115,10 +117,10 @@ public class GA4GHSamRecordIterator implements SAMRecordIterator{
       if (iterator == null || !iterator.hasNext()) {
         LOG.info("Getting " + 
             (iterator == null ? "first" : "next") + 
-            "interval from the API");
+            " interval from the API");
         // We have hit an end (or this is first time) so we need to go fish
         // to the API.
-        ReadIteratorResource resource = queryNextInterval();
+        ReadIteratorResource<Read, ReadGroupSet, Reference> resource = queryNextInterval();
         if (resource != null) {
           LOG.info("Got next interval from the API");
           header = resource.getSAMFileHeader();

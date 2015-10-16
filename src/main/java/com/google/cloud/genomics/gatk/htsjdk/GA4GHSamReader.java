@@ -16,9 +16,8 @@ limitations under the License.
 package com.google.cloud.genomics.gatk.htsjdk;
 
 import com.google.cloud.genomics.gatk.common.GA4GHUrl;
-import com.google.cloud.genomics.gatk.common.GenomicsApiDataSource;
-import com.google.cloud.genomics.gatk.common.GenomicsApiDataSourceFactory;
-import com.google.cloud.genomics.gatk.common.GenomicsApiDataSourceFactory.Settings;
+import com.google.cloud.genomics.gatk.common.GenomicsDataSource;
+import com.google.cloud.genomics.gatk.common.GenomicsDataSourceFactory;
 
 import htsjdk.samtools.QueryInterval;
 import htsjdk.samtools.SAMFileHeader;
@@ -32,32 +31,51 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.security.GeneralSecurityException;
+import java.util.logging.Logger;
 
 /**
  * SamReader implementation that reads data from GA4GH API.
  * For client_secrets file, specify the path in the ga4gh.client_secrets system property.
  */
-public class GA4GHSamReader implements SamReader {
+public class GA4GHSamReader<Read, ReadGroupSet, Reference> implements SamReader {
+  private static final Logger LOG = Logger.getLogger(GA4GHSamReader.class.getName());
   private GA4GHUrl url;
-  private GenomicsApiDataSourceFactory factory;
-  GenomicsApiDataSource dataSource;
-  GA4GHSamRecordIterator iterator;
+  private GenomicsDataSourceFactory<Read, ReadGroupSet, Reference> factory;
+  GenomicsDataSource<Read, ReadGroupSet, Reference> dataSource;
+  GA4GHSamRecordIterator<Read, ReadGroupSet, Reference> iterator;
   
-  public GA4GHSamReader(URL url) throws URISyntaxException, IOException, GeneralSecurityException {
+  /**
+   * Creates the reader passing the url defining the desired reading region
+   * and a dataSourceFactory (API or GRPC).
+   * @throws IOException 
+   * @throws GeneralSecurityException
+   */
+  public GA4GHSamReader(URL url,
+      GenomicsDataSourceFactory<Read, ReadGroupSet, Reference> dataSourceFactory) 
+          throws URISyntaxException, IOException, GeneralSecurityException {
     this.url = new GA4GHUrl(url);
-    this.factory = new GenomicsApiDataSourceFactory();
+    this.factory = dataSourceFactory;
     factory.configure(this.url.getRootUrl(), 
-        new Settings(
+        new GenomicsDataSourceFactory.Settings(
             System.getProperty("ga4gh.client_secrets", "client_secrets.json"),
+            System.getProperty("ga4gh.api_key", ""),
             System.getProperty("ga4gh.no_local_server","")
               .toLowerCase().equals("true")));
-    dataSource = factory.get(this.url.getRootUrl());
-    queryOverlapping(this.url.getSequence(), this.url.getRangeStart(), 
-        this.url.getRangeEnd());
+    try {
+      dataSource = factory.get(this.url.getRootUrl());
+      queryOverlapping(this.url.getSequence(), this.url.getRangeStart(), 
+          this.url.getRangeEnd());
+    } catch (Exception ex) {
+      LOG.warning("Error initializing GA4GHSamReader:\n" + ex + "\n");
+      throw ex;
+    }
   }
   
   @Override
   public void close() throws IOException {
+    if ( this.dataSource != null) {
+      this.dataSource.close();
+    }
     this.dataSource = null;
     this.factory = null;
   }
@@ -192,8 +210,8 @@ public class GA4GHSamReader implements SamReader {
   }
   
   public SAMRecordIterator query(GA4GHQueryInterval[] intervals) {
-    iterator = new GA4GHSamRecordIterator(dataSource, url.getReadset(), 
-        intervals);
+    iterator = new GA4GHSamRecordIterator<Read, ReadGroupSet, Reference>(
+        dataSource, url.getReadset(), intervals);
     return iterator();
   }
   

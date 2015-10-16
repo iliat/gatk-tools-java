@@ -16,9 +16,9 @@ limitations under the License.
 package com.google.cloud.genomics.gatk.picard.runner;
 
 import com.google.cloud.genomics.gatk.common.GA4GHUrl;
-import com.google.cloud.genomics.gatk.common.GenomicsApiDataSourceFactory;
-import com.google.cloud.genomics.gatk.common.GenomicsApiDataSourceFactory.Settings;
-import com.google.cloud.genomics.gatk.common.ReadIteratorResource;
+import com.google.cloud.genomics.gatk.common.GenomicsDataSourceFactory.Settings;
+import com.google.cloud.genomics.gatk.common.rest.GenomicsDataSourceFactoryRest;
+import com.google.cloud.genomics.gatk.common.grpc.GenomicsDataSourceFactoryGrpc;
 
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
@@ -56,6 +56,14 @@ public class GA4GHPicardRunner {
       description = "Path to client_secrets.json")
   public String clientSecretsFilename = "client_secrets.json";
   
+  @Parameter(names = "--api_key",
+      description = "Genomics API key")
+  public String apiKey = "";
+  
+  @Parameter(names = "--using_grpc",
+      description = "Use Grpc for API access")
+  public boolean usingGrpc = false;
+  
   @Parameter(names = "-path",
       description = "Path to picard tools binaries")
   public String picardPath = "picard/dist";
@@ -92,7 +100,8 @@ public class GA4GHPicardRunner {
   private Process process;
   
   /** Factory for creating Genomics Api based data sources */
-  private GenomicsApiDataSourceFactory factory = new GenomicsApiDataSourceFactory();
+  private GenomicsDataSourceFactoryRest factoryRest = new GenomicsDataSourceFactoryRest();
+  private GenomicsDataSourceFactoryGrpc factoryGrpc = new GenomicsDataSourceFactoryGrpc();
   
   /**
    * Holds all relevant data for one input resource.
@@ -202,13 +211,29 @@ public class GA4GHPicardRunner {
   /** Processes GA4GH based input, creates required API connections and data pump */
   private Input processGA4GHInput(String input) throws IOException, GeneralSecurityException, URISyntaxException {
     GA4GHUrl url = new GA4GHUrl(input);
-    factory.configure(url.getRootUrl(), 
-        new Settings(clientSecretsFilename, noLocalServer));
-    ReadIteratorResource reads = factory
-        .get(url.getRootUrl())
-        .getReadsFromGenomicsApi(url);
-    return new Input(input, STDIN_FILE_NAME, 
-        new ReadIteratorToSAMFilePump(reads));
+    SAMFilePump pump;
+    if (usingGrpc) {
+      factoryGrpc.configure(url.getRootUrl(), 
+        new Settings(clientSecretsFilename, apiKey, noLocalServer));
+      pump = new ReadIteratorToSAMFilePump<
+          com.google.genomics.v1.Read,
+          com.google.genomics.v1.ReadGroupSet, 
+          com.google.genomics.v1.Reference>(
+              factoryGrpc
+                .get(url.getRootUrl())
+                .getReads(url));
+    } else {
+      factoryRest.configure(url.getRootUrl(), 
+          new Settings(clientSecretsFilename, apiKey, noLocalServer));
+        pump = new ReadIteratorToSAMFilePump<
+            com.google.api.services.genomics.model.Read,
+            com.google.api.services.genomics.model.ReadGroupSet, 
+            com.google.api.services.genomics.model.Reference>(
+                factoryRest
+                  .get(url.getRootUrl())
+                  .getReads(url)); 
+    }
+    return new Input(input, STDIN_FILE_NAME, pump);
   }
   
   /** Processes regular, non GA4GH based file input */
