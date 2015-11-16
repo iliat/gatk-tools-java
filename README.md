@@ -56,3 +56,6 @@ picard$ java -jar dist/picard.jar ViewSam \
 INPUT=https://www.googleapis.com/genomics/v1beta2/readgroupsets/CK256frpGBD44IWHwLP22R4/ \
 GA4GH_CLIENT_SECRETS=../client_secrets.json
 ```
+
+### Converting more Picard tools
+Please read the [detailed description of the code changes in HTSJDK and Picard to support GA4GH APIs and how to convert more tools](adding-ga4gh-support.md).
