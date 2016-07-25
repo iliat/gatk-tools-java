@@ -15,12 +15,9 @@ limitations under the License.
 */
 package com.google.cloud.genomics.gatk.common.rest;
 
-import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
 import com.google.api.client.googleapis.json.GoogleJsonResponseException;
-import com.google.api.client.http.HttpRequest;
-import com.google.api.client.http.HttpRequestInitializer;
-import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.api.services.genomics.Genomics;
+import com.google.api.services.genomics.model.Program;
 import com.google.api.services.genomics.model.Read;
 import com.google.api.services.genomics.model.ReadGroup;
 import com.google.api.services.genomics.model.ReadGroupSet;
@@ -29,11 +26,11 @@ import com.google.api.services.genomics.model.ReferenceSet;
 import com.google.api.services.genomics.model.SearchReadsRequest;
 import com.google.cloud.genomics.gatk.common.GenomicsDataSourceBase;
 import com.google.cloud.genomics.utils.Paginator;
-import com.google.cloud.genomics.utils.Paginator.ShardBoundary;
+import com.google.cloud.genomics.utils.ShardBoundary;
+import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
-
 import java.io.File;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
@@ -76,22 +73,8 @@ public class GenomicsDataSource
         LOG.info("Using API key");
         return getFactory().fromApiKey(apiKey);
       }
-    } else {
-      final Genomics.Builder builder = new Genomics
-          .Builder(
-              GoogleNetHttpTransport.newTrustedTransport(),
-              JacksonFactory.getDefaultInstance(),
-              new HttpRequestInitializer() {
-                @Override public void initialize(HttpRequest httpRequest) throws IOException {
-                  httpRequest.setReadTimeout(20000);
-                  httpRequest.setConnectTimeout(20000);
-                }
-              })
-          .setApplicationName("genomics_java_client")
-          .setRootUrl(rootUrl)
-          .setServicePath("/");
-        return builder.build();
-    }
+    } 
+    return getFactory().fromApplicationDefaultCredential();
   }
     
   @Override
@@ -106,6 +89,19 @@ public class GenomicsDataSource
       ReadGroupSet readGroupSet = stub.readgroupsets().get(readsetId).execute();
       String datasetId = readGroupSet.getDatasetId();
       LOG.info("Found readset " + readsetId + ", dataset " + datasetId);
+      // Fix up PP in Programs
+      
+       if (readGroupSet.getReadGroups() != null) { 
+        for (ReadGroup readGroup : readGroupSet.getReadGroups()) {
+          if (readGroup.getPrograms() != null) {
+            for (Program PG : readGroup.getPrograms()) {
+              if (PG.getPrevProgramId() != null && PG.getPrevProgramId().length() == 0) {
+                PG.setPrevProgramId(null);
+              }
+            }
+          }
+        }   
+      }
       
       final Map<String, Reference> references = getReferences(readGroupSet);
       final Reference reference = references.get(sequenceName);
@@ -121,7 +117,7 @@ public class GenomicsDataSource
       if (sequenceName.isEmpty()) {
         unmappedReads = getUnmappedMatesOfMappedReads(readsetId); 
       }
-      Paginator.Reads searchReads = Paginator.Reads.create(stub, ShardBoundary.OVERLAPS);
+      Paginator.Reads searchReads = Paginator.Reads.create(stub, ShardBoundary.Requirement.OVERLAPS);
       SearchReadsRequest readRequest = new SearchReadsRequest()
         .setReadGroupSetIds(Arrays.asList(readsetId))
         .setReferenceName(sequenceName)
@@ -153,15 +149,15 @@ public class GenomicsDataSource
   private Map<String, Reference> getReferences(ReadGroupSet readGroupSet) 
       throws IOException, GeneralSecurityException {
     Set<String> referenceSetIds = Sets.newHashSet();
-    if (readGroupSet.getReferenceSetId() != null) {
-      LOG.info("Found reference set from read group set " + 
+    if (!Strings.isNullOrEmpty(readGroupSet.getReferenceSetId())) {
+      LOG.info("Found reference set from read group set: " + 
           readGroupSet.getReferenceSetId());
       referenceSetIds.add(readGroupSet.getReferenceSetId());
     }
     if (readGroupSet.getReadGroups() != null) {
       LOG.info("Found read groups");
       for (ReadGroup readGroup : readGroupSet.getReadGroups()) {
-        if (readGroup.getReferenceSetId() != null) {
+        if (!Strings.isNullOrEmpty(readGroup.getReferenceSetId())) {
           LOG.info("Found reference set from read group: " + 
               readGroup.getReferenceSetId());
           referenceSetIds.add(readGroup.getReferenceSetId());
@@ -179,7 +175,7 @@ public class GenomicsDataSource
       for (String referenceId : referenceSet.getReferenceIds()) {
         LOG.fine("Getting reference  " + referenceId);
         Reference reference = getApi().references().get(referenceId).execute();
-        if (reference.getName() != null) {
+        if (!Strings.isNullOrEmpty(reference.getName())) {
           references.put(reference.getName(), reference);
           LOG.fine("Adding reference  " + reference.getName());
         }
@@ -196,7 +192,7 @@ public class GenomicsDataSource
   @Override
   protected Iterable<Read> getUnmappedReadsIterator(String readsetId) throws GeneralSecurityException, IOException {
     final Paginator.Reads searchUnmappedReads = 
-        Paginator.Reads.create(getApi(), ShardBoundary.OVERLAPS);
+        Paginator.Reads.create(getApi(), ShardBoundary.Requirement.OVERLAPS);
     final SearchReadsRequest unmappedReadRequest = new SearchReadsRequest()
       .setReadGroupSetIds(Arrays.asList(readsetId))
       .setReferenceName("*");

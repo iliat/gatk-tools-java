@@ -45,7 +45,7 @@ public class GA4GHPicardRunner {
   @Parameter(names = "--root_url",
       description = "set the Genomics API root URL",
       hidden = true)
-  public String rootUrl = "https://www.googleapis.com/genomics/v1beta2";
+  public String rootUrl = "https://genomics.googleapis.com/v1";
 
   @Parameter(names = "--nolocalserver",
       description = "Disable the starting up of a local server for the auth flows",

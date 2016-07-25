@@ -34,15 +34,15 @@ import java.util.concurrent.TimeUnit;
  * 
  * To run this we need to specify the custom reader factory for HTSJDK and set
  * client_secrets file path for Genomics API:
- * -Dsamjdk.custom_reader=https://www.googleapis.com/genomics,com.google.cloud.genomics.gatk.htsjdk.GA4GHReaderFactory 
+ * -Dsamjdk.custom_reader=https://genomics.googleapis.com,com.google.cloud.genomics.gatk.htsjdk.GA4GHReaderFactory 
  * -Dga4gh.client_secrets=<path to client_secrets.json>.
  * 
  * Optionally specify -Dga4gh.using_grpc=true, to use GRPC based Api access.
  */
 public class SamReaderExample {
   static String GA4GH_URL = 
-      "https://www.googleapis.com/genomics/v1beta2/readgroupsets/CMvnhpKTFhD3he72j4KZuyc/chr17/41196311-42677499";
-      //"https://www.googleapis.com/genomics/v1beta2/readgroupsets/CK256frpGBD44IWHwLP22R4/";
+      "https://genomics.googleapis.com/v1/readgroupsets/CMvnhpKTFhD3he72j4KZuyc/chr17/41196311-42677499";
+      //"https://genomics.googleapis.com/v1/readgroupsets/CK256frpGBD44IWHwLP22R4/";
   public static void main(String[] args) {  
     try {
       SamReaderFactory factory =  SamReaderFactory.makeDefault();

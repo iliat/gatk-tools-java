@@ -23,6 +23,8 @@ import com.google.common.base.Suppliers;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.security.GeneralSecurityException;
 import java.util.logging.Logger;
 
@@ -53,22 +55,30 @@ public abstract class GenomicsDataSourceBase<Read, ReadGroupSet, Reference>
     this.rootUrl = rootUrl;
   }
   
-  protected GenomicsFactory getFactory() throws GeneralSecurityException, IOException {
+  protected GenomicsFactory getFactory() {
     if (factory == null) {
       factory = initGenomicsFactory();
     }
     return factory;
   }
   
-  protected GenomicsFactory initGenomicsFactory() throws GeneralSecurityException, IOException {
-    VerificationCodeReceiver receiver = noLocalServer ? 
-        new GooglePromptReceiver() : new LocalServerReceiver();
-    return GenomicsFactory
-            .builder("genomics_java_client")
-            .setRootUrl(rootUrl)
-            .setServicePath("/")
-            .setVerificationCodeReceiver(Suppliers.ofInstance(receiver))
-            .build();
+  protected GenomicsFactory initGenomicsFactory() {
+    // Remove any path component from the root url - the code expects
+    // e.g. https://genomics.googleapis.com
+    URL url = null;
+    try {
+      url = new URL(rootUrl);
+    } catch (MalformedURLException e) {
+      // Will not set url
+    }
+    GenomicsFactory.Builder builder = GenomicsFactory
+        .builder("genomics_java_client");
+    if (url != null) {
+      String rootUrlString = url.getProtocol() + "://" + url.getHost();
+      LOG.info("Initializing genomics factory with root url " + rootUrlString);
+      builder.setRootUrl(rootUrlString);
+    }
+    return builder.build();
   }
  
   static final String CLIENT_SECRETS_INSTRUCTIONS = 

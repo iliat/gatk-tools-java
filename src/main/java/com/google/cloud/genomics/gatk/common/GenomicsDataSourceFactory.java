@@ -20,7 +20,7 @@ import java.util.Map;
 
 /**
  * Creates GenomicsApiDataSource objects, one per each root url
- * (e.g. https://www.googleapis.com/genomics/v1beta2).
+ * (e.g. https://genomics.googleapis.com/v1).
  * Allows configuring settings such as client secrets file on a per 
  * root url basis.
  * This class is abstract and is later specialized for API vs. GRPC.

@@ -15,11 +15,11 @@ limitations under the License.
 */
 package com.google.cloud.genomics.gatk.common.grpc;
 
-import com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets;
-import com.google.api.client.googleapis.util.Utils;
-import com.google.auth.oauth2.UserCredentials;
 import com.google.cloud.genomics.gatk.common.GenomicsDataSourceBase;
-import com.google.cloud.genomics.utils.GenomicsFactory.OfflineAuth;
+import com.google.cloud.genomics.utils.CredentialFactory;
+import com.google.cloud.genomics.utils.OfflineAuth;
+import com.google.cloud.genomics.utils.grpc.GenomicsChannel;
+import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -39,25 +39,14 @@ import com.google.genomics.v1.StreamReadsRequest;
 import com.google.genomics.v1.StreamReadsResponse;
 import com.google.genomics.v1.StreamingReadServiceGrpc;
 import com.google.genomics.v1.StreamingReadServiceGrpc.StreamingReadServiceBlockingStub;
-
 import io.grpc.Channel;
-import io.grpc.ChannelImpl;
-import io.grpc.ClientInterceptors;
-import io.grpc.auth.ClientAuthInterceptor;
-import io.grpc.transport.netty.GrpcSslContexts;
-import io.grpc.transport.netty.NegotiationType;
-import io.grpc.transport.netty.NettyChannelBuilder;
-
+import io.grpc.ManagedChannel;
 import java.io.FileNotFoundException;
-import java.io.FileReader;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
-import java.util.ArrayList;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.Executors;
 
 /**
  * Manages Genomics GRPC Api initialization and provides Read iterator based
@@ -66,8 +55,7 @@ import java.util.concurrent.Executors;
 public class GenomicsDataSource 
   extends GenomicsDataSourceBase<Read, ReadGroupSet, Reference> {
   /** gRPC channel used for faster access to Genomics API */
-  private Channel channel;
-  private ChannelImpl channelImpl;
+  private ManagedChannel channel;
  
   public GenomicsDataSource(String rootUrl, 
       String clientSecretsFilename, 
@@ -83,41 +71,19 @@ public class GenomicsDataSource
     return channel;
   }
 
-  private Channel initGenomicsChannel() throws FileNotFoundException, IOException, GeneralSecurityException {
-    checkParamsForAuth(AUTH_REQUIREMENTS.CLIENT_SECRETS_ONLY); 
-    final GoogleClientSecrets secrets = GoogleClientSecrets.load(
-        Utils.getDefaultJsonFactory(), 
-        new FileReader(clientSecretsFilename));
-    final OfflineAuth auth = getFactory()
-        .getOfflineAuthFromClientSecretsFile(clientSecretsFilename);
-    final UserCredentials userCredentials = new UserCredentials(
-        secrets.getInstalled().getClientId(),
-        secrets.getInstalled().getClientSecret(),
-        auth.refreshToken);
-    
- // Java 8's implementation of GCM ciphers is extremely slow. Therefore we disable
-    // them here.
-    List<String> defaultCiphers =
-        GrpcSslContexts.forClient().ciphers(null).build().cipherSuites();
-    List<String> performantCiphers = new ArrayList<>();
-    for (String cipher : defaultCiphers) {
-      if (!cipher.contains("GCM")) {
-        performantCiphers.add(cipher);
-      }
+  private ManagedChannel initGenomicsChannel() throws FileNotFoundException, IOException, GeneralSecurityException {
+     if (clientSecretsFilename != null &&  clientSecretsFilename.length() > 0) {
+      return GenomicsChannel.fromOfflineAuth(
+          new OfflineAuth(
+              CredentialFactory.getCredentialFromClientSecrets(
+                  clientSecretsFilename,
+                  "genomics_java_client")));
     }
     
-    channelImpl = NettyChannelBuilder.forAddress("genomics.googleapis.com", 443)
-        .negotiationType(NegotiationType.TLS)
-        .streamWindowSize(1000000)
-        .sslContext(GrpcSslContexts.forClient().ciphers(performantCiphers).build())
-        .build();
-    /*userCredentials = userCredentials.createScoped(
-        Arrays.asList("https://www.googleapis.com/auth/genomics"));*/
-    ClientAuthInterceptor interceptor = new ClientAuthInterceptor(userCredentials,
-        Executors.newSingleThreadExecutor());
-    return ClientInterceptors.intercept(channelImpl, interceptor); 
+    // API Key is not sufficient for StreamReads request.
+    // TODO: All support for non default credentials will be removed in a subsequent PR.
+    return GenomicsChannel.fromDefaultCreds(); 
   }
-
  
   @Override
   public ReadIteratorResource getReads(
@@ -183,7 +149,7 @@ public class GenomicsDataSource
   private Map<String, Reference> getReferences(ReadGroupSet readGroupSet) 
       throws IOException, GeneralSecurityException {
     Set<String> referenceSetIds = Sets.newHashSet();
-    if (readGroupSet.getReferenceSetId() != null && !readGroupSet.getReferenceSetId().isEmpty()) {
+    if (!Strings.isNullOrEmpty(readGroupSet.getReferenceSetId())) {
       LOG.info("Found reference set from read group set " + 
           readGroupSet.getReferenceSetId());
       referenceSetIds.add(readGroupSet.getReferenceSetId());
@@ -191,7 +157,7 @@ public class GenomicsDataSource
     if (readGroupSet.getReadGroupsCount() > 0) {
       LOG.info("Found read groups");
       for (ReadGroup readGroup : readGroupSet.getReadGroupsList()) {
-        if (readGroup.getReferenceSetId() != null && !readGroup.getReferenceSetId().isEmpty()) {
+        if (!Strings.isNullOrEmpty(readGroup.getReferenceSetId())) {
           LOG.info("Found reference set from read group: " + 
               readGroup.getReferenceSetId());
           referenceSetIds.add(readGroup.getReferenceSetId());
@@ -217,7 +183,7 @@ public class GenomicsDataSource
         GetReferenceRequest getReferenceRequest = GetReferenceRequest
             .newBuilder().setReferenceId(referenceId).build();
         Reference reference = referenceSetStub.getReference(getReferenceRequest);
-        if (reference.getName() != null && !reference.getName().isEmpty()) {
+        if (!Strings.isNullOrEmpty(reference.getName())) {
           references.put(reference.getName(), reference);
           LOG.fine("Adding reference  " + reference.getName());
         }
@@ -316,9 +282,8 @@ public class GenomicsDataSource
   
   @Override
   public void close() {
-    if (channelImpl != null ) {
-      channelImpl.shutdown();
-      channelImpl = null;
+    if (channel != null ) {
+      channel.shutdown();
     }
     channel = null;
   }

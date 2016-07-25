@@ -1,4 +1,4 @@
 #!/bin/bash
 `dirname $0`/run_picard.sh \
 ViewSam \
-INPUT=https://www.googleapis.com/genomics/v1beta2/readgroupsets/CK256frpGBD44IWHwLP22R4/
+INPUT=https://genomics.googleapis.com/v1/readgroupsets/CK256frpGBD44IWHwLP22R4/
